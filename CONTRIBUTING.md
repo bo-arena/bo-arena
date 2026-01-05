@@ -1,0 +1,32 @@
+# Contributing Guidelines
+
+Thanks for your interest in contributing to `bo-arena`! We welcome contributions from the community to help improve the project. Please follow the guidelines below to ensure a smooth contribution process.
+
+## How to Contribute
+
+1. **Fork the Repository**: Start by forking the `bo-arena` repository on GitHub to your own account.
+2. **Clone Your Fork**: Clone your forked repository to your local machine using:
+   ```
+   git clone <your-fork-url>
+   ```
+3. **Install Dependencies**: Navigate to the project directory and install the required dependencies. We use [uv](https://docs.astral.sh/uv/) for managing dependencies, and highly recommend that you do too. To get started quickly, after installing `uv`, you can simply run:
+    ```
+    uv sync --all-extras
+    ```
+    and this will create a virtual environment and install all necessary packages for development.
+
+3. **Set up pre-commit hooks**: We use pre-commit hooks to maintain code quality. To initialise pre-commit hooks, run the following command:
+   ```
+   uv run pre-commit install
+   ```
+3. **Create a Branch**: Create a new branch for your feature or bug fix:
+   ```
+   git checkout -b <new-feature-branch>
+   ```
+4. **Make Changes**: Implement your changes in the codebase. Please ensure that your code includes appropriate tests.
+5. **Commit Changes**: Commit your changes with a clear and descriptive commit message.
+6. **Push Changes**: Push your changes to your forked repository:
+   ```
+   git push origin <new-feature-branch>
+   ```
+7. **Create a Pull Request**: Open a pull request in the [original `bo-arena` repository](https://github.com/Thomas-Christie/bo-arena).

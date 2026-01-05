@@ -1,0 +1,153 @@
+[project]
+
+authors = [{ name = "Thomas Christie", email = "thomashamish@hotmail.com" }]
+name = "bo-arena"
+dynamic = ["version"]
+description = "Arena for simple, reliable, and efficient benchmarking of BO algorithms."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = ["jax", "jaxtyping", "torch", "wandb"]
+
+[project.optional-dependencies]
+dev = ["beartype", "ruff", "pre-commit", "jupytext", "ipykernel"]
+
+# PEP 518 Build System Configuration
+# See https://peps.python.org/pep-0518/
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["bo_arena"]
+
+[tool.setuptools.dynamic]
+version = { attr = "bo_arena.__version__" }
+
+# Testing Configuration
+# See https://docs.pytest.org/en/stable/reference/customize.html
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
+
+# Linting Configuration
+# See https://docs.astral.sh/ruff/rules/#legend
+
+[tool.ruff]
+preview = true
+exclude = [".git", "__pycache__", ".venv"]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "ARG", # flake8-unused-arguments
+    "ASYNC", # flake8-async
+    "ANN", # flake8-annotations
+    "B", # flake8-bugbear
+    "BLE", # flake8-blind-except
+    "C4", # flake8-comprehensions
+    "C90", # mccabe
+    "COM", # flake8-commas
+    "D", # pydocstyle
+    "DTZ", # flake8-datetimez
+    "E", # pycodestyle error
+    "EM", # flake8-errmsg
+    "ERA", # eradicate
+    "F", # Pyflakes
+    "FBT", # flake8-boolean-trap
+    "FLY", # flynt
+    "FURB", # refurb
+    "G", # flake8-logging-format
+    "I", # isort
+    "ICN", # flake8-import-conventions
+    "INT", # flake8-gettext
+    "ISC", # flake8-implicit-str-concat
+    "LOG", # flake8-logging
+    "N", # pep8-naming
+    "NPY", # NumPy
+    "PERF", # Perflint
+    "PGH", # pygrep-hooks
+    "PIE", # flake8-pie
+    "PL", # Pylint
+    "PT", # flake8-pytest-style
+    "PTH", # flake8-use-pathlib
+    "PYI", # flake8-pyi
+    "Q", # flake8-quotes
+    "RET", # flake8-return
+    "RSE", # flake8-raise
+    "RUF", # Ruff
+    "S", # flake8-bandit
+    "SLOT", # flake8-slots
+    "T10", # flake8-debugger
+    "TCH", # flake8-type-checking
+    "TD", # flake8-todos
+    "TID", # flake8-tidy-imports
+    "TRY", # tryceratops
+    "SIM", # flake8-simplify
+    "SLF", # flake8-self
+    "UP", # pyupgrade
+    "W", # pycodestyle warning
+    "YTT", # flake8-2020
+]
+ignore = [
+    # Conflicting lint rules with Ruff's formatter
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+    "FBT001",
+    "FBT003",
+    "TD003",
+    "TRY003",
+    # It is fine to override loop variables when it is clear that only the value that
+    # overrides the original is needed
+    "PLW2901",
+    # The performance of logging is not a concern for us; in return, using f-strings
+    # makes the logged messages much more readable in code
+    "G004",
+    # We do not annotate __init__ methods -- args are specified in the class docstring
+    "D107",
+    # This is research code, attribute names are more flexible with casing
+    "E741",
+    "N802",
+    "N803",
+    "N806",
+    "N812",
+    "N815",
+    "N816",
+    # Magic values are fine for academic code as longs as they are not overused
+    "PLR2004",
+    "PLR0912",
+    "PLR0914",
+    # In-place assigments are not always possible in torch
+    "PLR6104",
+    # Assignments before return can emphasize the code's semantic structure
+    "RET504",
+    "S403",
+    # We don't do cryptography
+    "S311",
+    # The subprocess module is fine as long as one validates the commands
+    "S404",
+    # Jaxtyping is incompatible with the checking of annotation strings
+    "F722",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["S101"] # Use of assert is allowed in test files
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
