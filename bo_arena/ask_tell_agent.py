@@ -1,13 +1,11 @@
 """Base class for ask-tell agents."""
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import numpy as np
-    from jaxtyping import Float
+import numpy as np
+from jaxtyping import Float
 
-    from bo_arena.utils.dataset import Dataset
+from bo_arena.utils.dataset import Dataset
 
 
 class AskTellAgent:

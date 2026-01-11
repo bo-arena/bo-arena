@@ -1,12 +1,10 @@
 """Class for storing datasets of observations."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import numpy as np
-
-if TYPE_CHECKING:
-    from jaxtyping import Float
+from jaxtyping import Float
+from utils.dataset import Dataset
 
 
 @dataclass

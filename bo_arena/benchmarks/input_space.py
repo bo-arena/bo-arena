@@ -1,13 +1,10 @@
 """Input space definitions."""
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING
 
 import numpy as np
+from jaxtyping import Float
 from scipy.stats import qmc
-
-if TYPE_CHECKING:
-    from jaxtyping import Float
 
 
 # TODO(Thomas-Christie): Add __str__ methods for providing sampling method for logging?

@@ -1,16 +1,13 @@
 """Base class for benchmarks."""
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING
 
 import numpy as np
 from bencherscaffold.client import BencherClient
 from bencherscaffold.protoclasses.bencher_pb2 import Value
+from jaxtyping import Float
 
 from bo_arena.benchmarks.metadata import BENCHMARK_METADATA, BenchmarkMetadata
-
-if TYPE_CHECKING:
-    from jaxtyping import Float
 
 
 class Benchmark:
@@ -28,14 +25,14 @@ class Benchmark:
     @abstractmethod
     def evaluate_points(
         self, points: Float[np.ndarray, "N D"]
-    ) -> Float[np.ndarray, "N 1"]:
+    ) -> Float[np.ndarray, " N"]:
         """Evaluate the benchmark at the given points.
 
         Args:
-            points: Points to evaluate of shape (N, D).
+            points: Points to evaluate.
 
         Returns:
-            Evaluations at the given points of shape (N, 1).
+            Evaluations at the given points.
         """
         msg = "This method should be implemented by subclasses."
         raise NotImplementedError(msg)
@@ -55,14 +52,14 @@ class BencherBenchmark(Benchmark):
 
     def evaluate_points(
         self, points: Float[np.ndarray, "N D"]
-    ) -> Float[np.ndarray, "N 1"]:
+    ) -> Float[np.ndarray, " N"]:
         """Evaluate the benchmark at the given points.
 
         Args:
-            points: Points to evaluate of shape (N, D).
+            points: Points to evaluate.
 
         Returns:
-            Evaluations at the given points of shape (N, 1).
+            Evaluations at the given points.
         """
         evaluations = []
         for point in points:
@@ -74,4 +71,4 @@ class BencherBenchmark(Benchmark):
                 point=bencher_point,
             )
             evaluations.append(value)
-        return np.array(evaluations).reshape(-1, 1)
+        return np.array(evaluations)

@@ -5,7 +5,7 @@ name = "bo-arena"
 dynamic = ["version"]
 description = "Arena for simple, reliable, and efficient benchmarking of BO algorithms."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "jaxtyping",
     "wandb",
@@ -42,8 +42,8 @@ addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 preview = true
-exclude = [".git", "__pycache__", ".venv"]
-target-version = "py314"
+exclude = [".git", "__pycache__", ".venv", "notebooks"]
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [

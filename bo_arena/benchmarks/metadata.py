@@ -31,4 +31,14 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             upper_bounds=np.ones(60),
         ),
     ),  # TODO(Thomas-Christie): Check these values.
+    "lasso-dna": BenchmarkMetadata(
+        input_dim=180,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(180),
+            upper_bounds=np.ones(180),
+        ),
+    ),
 }

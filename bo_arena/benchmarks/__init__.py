@@ -1,5 +1,5 @@
 """A collection of benchmarks."""
 
-from .benchmark import Benchmark
+from .benchmark import BencherBenchmark, Benchmark
 
-__all__ = ["Benchmark"]
+__all__ = ["BencherBenchmark", "Benchmark"]
