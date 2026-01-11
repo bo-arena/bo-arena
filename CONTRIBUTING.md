@@ -30,3 +30,19 @@ Thanks for your interest in contributing to `bo-arena`! We welcome contributions
    git push origin <new-feature-branch>
    ```
 7. **Create a Pull Request**: Open a pull request in the [original `bo-arena` repository](https://github.com/Thomas-Christie/bo-arena).
+
+## Notebooks
+
+We use `jupytext` to manage Jupyer notebooks, storing them as `.py` files for better version control. In  order to convert between `.ipynb` and `.py` formats, you can use the following commands:
+
+- To convert a `.ipynb` file to a `.py` file:
+  ```
+  jupytext --to py:percent <notebook>.ipynb
+  ```
+
+- To convert a `.py` file back to a `.ipynb` file:
+  ```
+  jupytext --to ipynb <notebook>.py
+  ```
+
+Note that you can prepend `uv run` to these commands if you have `jupytext` installed in your `uv`-managed virtual environment.
