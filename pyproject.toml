@@ -6,7 +6,13 @@ dynamic = ["version"]
 description = "Arena for simple, reliable, and efficient benchmarking of BO algorithms."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = ["jax", "jaxtyping", "torch", "wandb"]
+dependencies = [
+    "jaxtyping",
+    "wandb",
+    "numpy",
+    "scipy",
+    "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold",
+]
 
 [project.optional-dependencies]
 dev = ["beartype", "ruff", "pre-commit", "jupytext", "ipykernel"]
@@ -113,6 +119,9 @@ ignore = [
     # It is fine to override loop variables when it is clear that only the value that
     # overrides the original is needed
     "PLW2901",
+    # It is often impossible to enforce a hard limit on the number of arguments
+    "PLR0913",
+    "PLR0917",
     # The performance of logging is not a concern for us; in return, using f-strings
     # makes the logged messages much more readable in code
     "G004",
