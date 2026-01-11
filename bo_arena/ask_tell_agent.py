@@ -43,7 +43,8 @@ class AskTellAgent:
 
         Args:
             n: Number of points to select (used for batch BO).
-            seed: Random seed for reproducibility.
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
 
         Returns:
             Points selected by the agent for evaluation.
@@ -57,7 +58,8 @@ class AskTellAgent:
         Args:
             data: Observations corresponding to the points requested
                 in the previous `ask` call.
-            seed: Random seed for reproducibility.
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
         """
         raise NotImplementedError
 
@@ -71,6 +73,7 @@ class AskTellAgent:
 
         Args:
             data: Initial observations to provide to the agent.
-            seed: Random seed for reproducibility.
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
         """
         raise NotImplementedError

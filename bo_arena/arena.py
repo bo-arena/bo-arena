@@ -109,7 +109,7 @@ class Arena:
         # Log initial points info.
         if self.logger is not None:
             self.logger.info(
-                f"Initial points evaluated: {self.n_initial_points}, "
+                f"Initial points evaluated: {self.n_initial_points}\n"
                 f"Initial best observation: {float(np.min(initial_observations)):.4f}"
             )
 
@@ -157,13 +157,13 @@ class Arena:
                     self.observed_data.y[: -self.batch_size]
                 )
                 self.logger.info(
-                    f"BO loop iteration {batch_idx + 1}/{bo_loop_iters}: "
-                    f"Total evaluations: {self.observed_data.n}, "
-                    f"Ask time: {ask_time:.4f}s, "
-                    f"Eval time: {eval_time:.4f}s, "
-                    f"Tell time: {tell_time:.4f}s, "
-                    f"Best observation: {float(np.min(self.observed_data.y)):.4f}"
-                    f"New best observation in current batch: {new_best_in_batch}"
+                    f"BO loop iteration {batch_idx + 1}/{bo_loop_iters}:\n"
+                    f"  Total evaluations: {self.observed_data.n}\n"
+                    f"  Ask time: {ask_time:.4f}s\n"
+                    f"  Eval time: {eval_time:.4f}s\n"
+                    f"  Tell time: {tell_time:.4f}s\n"
+                    f"  Best observation: {float(np.min(self.observed_data.y)):.4f}\n"
+                    f"  New best observation in current batch: {new_best_in_batch}"
                 )
 
             # Log detailed metrics to WandB for each point in the batch.
