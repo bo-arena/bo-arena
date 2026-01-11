@@ -59,7 +59,7 @@ class Arena:
         self.logger = logger
         self.wandb_run = wandb_run
         self.observed_data = Dataset(
-            np.empty((0, self.benchmark.metadata.input_dim)), np.empty((0, 1))
+            np.empty((0, self.benchmark.metadata.input_dim)), np.empty(0)
         )
 
     def run(self) -> Dataset:
@@ -92,19 +92,20 @@ class Arena:
         if self.logger is not None:
             self.logger.info(
                 f"Initial points evaluated: {self.n_initial_points}, "
-                f"Initial best observation: {initial_observations.min():.4f}"
+                f"Initial best observation: {float(np.min(initial_observations)):.4f}"
             )
 
         if self.wandb_run is not None:
             for iter in range(self.n_initial_points):
-                obs_val = initial_observations[iter]
-                best_val_so_far = initial_observations[: iter + 1].min()
+                observation_val = float(initial_observations[iter])
+                best_val_so_far = float(np.min(initial_observations[: iter + 1]))
+                is_best_observation = observation_val == best_val_so_far
                 self.wandb_run.log({
                     "batch_index": 0,
                     "iteration": iter,
-                    "observation": obs_val,
+                    "observation": observation_val,
                     "best_observation": best_val_so_far,
-                    "is_best_observation": np.equal(obs_val, best_val_so_far),
+                    "is_best_observation": is_best_observation,
                 })
 
         # Run core BO loop.
@@ -131,30 +132,37 @@ class Arena:
             self.agent.tell(new_points_dataset)
             tell_time = time.time() - start
 
-            # Log iteration info.
+            # Log iteration info (note, only logs info about the entire batch, not
+            # individual points).
             if self.logger is not None:
+                new_best_in_batch = np.min(new_observations) < np.min(
+                    self.observed_data.y[: -self.batch_size]
+                )
                 self.logger.info(
-                    f"BO Loop Iteration {batch_idx + 1}/{bo_loop_iters}: "
+                    f"BO loop iteration {batch_idx + 1}/{bo_loop_iters}: "
                     f"Total evaluations: {self.observed_data.n}, "
                     f"Ask time: {ask_time:.4f}s, "
                     f"Eval time: {eval_time:.4f}s, "
                     f"Tell time: {tell_time:.4f}s, "
-                    f"Best observation: {self.observed_data.best_observation()[0]:.4f}"
+                    f"Best observation: {float(np.min(self.observed_data.y)):.4f}"
+                    f"New best observation in current batch: {new_best_in_batch}"
                 )
 
+            # Log detailed metrics to WandB for each point in the batch.
             if self.wandb_run is not None:
                 for iter in range(
                     self.n_initial_points + batch_idx * self.batch_size,
                     self.n_initial_points + (batch_idx + 1) * self.batch_size,
                 ):
-                    obs_val = self.observed_data.y[iter]
-                    best_val_so_far = self.observed_data.y[: iter + 1].min()
+                    observation_val = float(self.observed_data.y[iter])
+                    best_val_so_far = float(np.min(self.observed_data.y[: iter + 1]))
+                    is_best_observation = observation_val == best_val_so_far
                     self.wandb_run.log({
                         "batch_index": batch_idx + 1,
                         "iteration": iter,
-                        "observation": obs_val,
+                        "observation": observation_val,
                         "best_observation": best_val_so_far,
-                        "is_best_observation": np.equal(obs_val, best_val_so_far),
+                        "is_best_observation": is_best_observation,
                         "ask_time": ask_time,
                         "eval_time": eval_time,
                         "tell_time": tell_time,

@@ -19,7 +19,7 @@ class Dataset:
     """
 
     X: Float[np.ndarray, "N ..."]
-    y: Float[np.ndarray, "N 1"]
+    y: Float[np.ndarray, " N"]
 
     def __post_init__(self) -> None:
         """Checks that the shapes of $X$ and $y$ are compatible."""
@@ -27,8 +27,8 @@ class Dataset:
             msg = f"Inputs, X, and outputs, y, must have the same number of elements. Got X.shape={self.X.shape} and y.shape={self.y.shape}."  # noqa: E501
             raise ValueError(msg)
 
-        if self.y.ndim != 2 or self.y.shape[1] != 1:
-            msg = f"Outputs, y, must be a 2-dimensional array with shape (N, 1). Got y.shape={self.y.shape}."  # noqa: E501
+        if self.y.ndim != 1:
+            msg = f"Outputs, y, must be a 1-dimensional array with shape (N,). Got y.shape={self.y.shape}."  # noqa: E501
             raise ValueError(msg)
 
     def __add__(self, other: Dataset) -> Dataset:
@@ -45,14 +45,6 @@ class Dataset:
         X = np.concatenate((self.X, other.X))
         y = np.concatenate((self.y, other.y))
         return Dataset(X=X, y=y)
-
-    def best_observation(self) -> Float[np.ndarray, " 1"]:
-        """Get the best observed output value.
-
-        Returns:
-            Best observed output value.
-        """
-        return np.min(self.y, axis=0)
 
     @property
     def n(self) -> int:
