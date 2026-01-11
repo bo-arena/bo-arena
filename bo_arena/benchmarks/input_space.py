@@ -18,12 +18,12 @@ class InputSpace:
         pass
 
     @abstractmethod
-    def sample(self, n_points: int, rand_seed: int) -> Float[np.ndarray, "N D"]:
+    def sample(self, n_points: int, seed: int) -> Float[np.ndarray, "N D"]:
         """Sample points from the input space.
 
         Args:
             n_points: Number of points to sample.
-            rand_seed: Random seed for reproducibility.
+            seed: Random seed for reproducibility.
 
         Returns:
             Sampled points.
@@ -45,17 +45,17 @@ class ContinuousInputSpace(InputSpace):
         self.upper_bounds = upper_bounds
         self.input_dim = lower_bounds.shape[0]
 
-    def sample(self, n_points: int, rand_seed: int) -> Float[np.ndarray, "N D"]:
+    def sample(self, n_points: int, seed: int) -> Float[np.ndarray, "N D"]:
         """Sample points from the continuous input space via Sobol indices.
 
         Args:
             n_points: Number of points to sample.
-            rand_seed: Random seed for reproducibility.
+            seed: Random seed for reproducibility.
 
         Returns:
             Sampled points of shape (n_points, input_dim).
         """
-        rng = np.random.default_rng(rand_seed)
+        rng = np.random.default_rng(seed)
         sampler = qmc.Sobol(d=self.input_dim, scramble=True, rng=rng)
         unit_samples = sampler.random(n=n_points)
         samples = qmc.scale(unit_samples, self.lower_bounds, self.upper_bounds)

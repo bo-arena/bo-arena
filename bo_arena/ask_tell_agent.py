@@ -38,11 +38,12 @@ class AskTellAgent:
         raise NotImplementedError
 
     @abstractmethod
-    def ask(self, n: int) -> Float[np.ndarray, "{n} D"]:
+    def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
         """Return points to evaluate next.
 
         Args:
             n: Number of points to select (used for batch BO).
+            seed: Random seed for reproducibility.
 
         Returns:
             Points selected by the agent for evaluation.
@@ -50,17 +51,18 @@ class AskTellAgent:
         raise NotImplementedError
 
     @abstractmethod
-    def tell(self, data: Dataset) -> None:
+    def tell(self, data: Dataset, seed: int) -> None:
         """Provide observations for previously requested points.
 
         Args:
             data: Observations corresponding to the points requested
                 in the previous `ask` call.
+            seed: Random seed for reproducibility.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def tell_initial_data(self, data: Dataset) -> None:
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:
         """Provide initial observations to the agent.
 
         This method is used to provide the agent with an initial dataset
@@ -69,5 +71,6 @@ class AskTellAgent:
 
         Args:
             data: Initial observations to provide to the agent.
+            seed: Random seed for reproducibility.
         """
         raise NotImplementedError
