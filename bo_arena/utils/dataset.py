@@ -1,10 +1,11 @@
 """Class for storing datasets of observations."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 import numpy as np
-from jaxtyping import Float
-from utils.dataset import Dataset
+from jaxtyping import Float  # noqa: TC002
 
 
 @dataclass
