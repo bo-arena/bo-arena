@@ -13,16 +13,17 @@ from bo_arena.benchmarks.metadata import BENCHMARK_METADATA, BenchmarkMetadata
 class Benchmark:
     """Base class for benchmarks.
 
+    Note that benchmarks should be written as maximization problems (following the same
+    convention as in BoTorch).
+
     Args:
         name: Name of the benchmark.
         metadata: Benchmark metadata.
-        negate: Negate the underlying function.
     """
 
-    def __init__(self, name: str, metadata: BenchmarkMetadata, negate: bool) -> None:
+    def __init__(self, name: str, metadata: BenchmarkMetadata) -> None:
         self.name = name
         self.metadata = metadata
-        self.negate = negate
 
     @abstractmethod
     def evaluate_points(
@@ -41,26 +42,15 @@ class Benchmark:
 
 
 class BencherBenchmark(Benchmark):
-    """Benchmark implementation using Bencher.
+    """Benchmark implementation using Bencher."""
 
-    Bencher defines its benchmarks as minimization problems. Since BoTorch expects
-    maximization problems, we negate all of Bencher's benchmarks by default (with
-    negate=True).
-    """
-
-    def __init__(
-        self,
-        name: str,
-        metadata: BenchmarkMetadata | None = None,
-        *,
-        negate: bool = True,
-    ) -> None:
+    def __init__(self, name: str, metadata: BenchmarkMetadata | None = None) -> None:
         if metadata is None:
             metadata = BENCHMARK_METADATA.get(name)
             if metadata is None:
                 msg = f"Metadata not found for benchmark '{name}'."
                 raise ValueError(msg)
-        super().__init__(name, metadata, negate=negate)
+        super().__init__(name, metadata)
         self.bencher_client = BencherClient()
 
     def evaluate_points(
@@ -84,7 +74,4 @@ class BencherBenchmark(Benchmark):
                 point=bencher_point,
             )
             evaluations.append(value)
-        evaluations = np.array(evaluations)
-        if self.negate:
-            evaluations = -evaluations
-        return evaluations
+        return -np.array(evaluations)  # turn minimization into maximization for BoTorch

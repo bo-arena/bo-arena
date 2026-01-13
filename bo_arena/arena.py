@@ -15,6 +15,9 @@ from bo_arena.utils.dataset import Dataset
 class Arena:
     """Arena for running BO experiments.
 
+    Note that benchmarks are assumed to be maximization problems, following the same
+    convention as in BoTorch.
+
     Args:
         benchmark: The benchmark to run.
         agent: The BO agent to use for optimization.
