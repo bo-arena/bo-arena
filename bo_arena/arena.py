@@ -15,6 +15,9 @@ from bo_arena.utils.dataset import Dataset
 class Arena:
     """Arena for running BO experiments.
 
+    Note that benchmarks are assumed to be maximization problems, following the same
+    convention as in BoTorch.
+
     Args:
         benchmark: The benchmark to run.
         agent: The BO agent to use for optimization.
@@ -105,13 +108,13 @@ class Arena:
         if self.logger is not None:
             self.logger.info(
                 f"Initial points evaluated: {self.n_initial_points}\n"
-                f"Initial best observation: {float(np.min(initial_observations)):.4f}"
+                f"Initial best observation: {float(np.max(initial_observations)):.4f}"
             )
 
         if self.wandb_run is not None:
             for iter in range(self.n_initial_points):
                 observation_val = float(initial_observations[iter])
-                best_val_so_far = float(np.min(initial_observations[: iter + 1]))
+                best_val_so_far = float(np.max(initial_observations[: iter + 1]))
                 is_best_observation = observation_val == best_val_so_far
                 self.wandb_run.log({
                     "batch_index": 0,
@@ -148,7 +151,7 @@ class Arena:
             # Log iteration info (note, only logs info about the entire batch, not
             # individual points).
             if self.logger is not None:
-                new_best_in_batch = np.min(new_observations) < np.min(
+                new_best_in_batch = np.max(new_observations) > np.max(
                     self.observed_data.y[: -self.batch_size]
                 )
                 self.logger.info(
@@ -157,7 +160,7 @@ class Arena:
                     f"  Ask time: {ask_time:.4f}s\n"
                     f"  Eval time: {eval_time:.4f}s\n"
                     f"  Tell time: {tell_time:.4f}s\n"
-                    f"  Best observation: {float(np.min(self.observed_data.y)):.4f}\n"
+                    f"  Best observation: {float(np.max(self.observed_data.y)):.4f}\n"
                     f"  New best observation in current batch: {new_best_in_batch}"
                 )
 
@@ -168,7 +171,7 @@ class Arena:
                     self.n_initial_points + (batch_idx + 1) * self.batch_size,
                 ):
                     observation_val = float(self.observed_data.y[iter])
-                    best_val_so_far = float(np.min(self.observed_data.y[: iter + 1]))
+                    best_val_so_far = float(np.max(self.observed_data.y[: iter + 1]))
                     is_best_observation = observation_val == best_val_so_far
                     self.wandb_run.log({
                         "batch_index": batch_idx + 1,

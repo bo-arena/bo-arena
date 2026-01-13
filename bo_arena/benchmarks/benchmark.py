@@ -13,6 +13,9 @@ from bo_arena.benchmarks.metadata import BENCHMARK_METADATA, BenchmarkMetadata
 class Benchmark:
     """Base class for benchmarks.
 
+    Note that benchmarks should be written as maximization problems (following the same
+    convention as in BoTorch).
+
     Args:
         name: Name of the benchmark.
         metadata: Benchmark metadata.
@@ -71,4 +74,4 @@ class BencherBenchmark(Benchmark):
                 point=bencher_point,
             )
             evaluations.append(value)
-        return np.array(evaluations)
+        return -np.array(evaluations)  # turn minimization into maximization for BoTorch
