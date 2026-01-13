@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
-from jaxtyping import Float  # noqa: TC002
+
+if TYPE_CHECKING:
+    from jaxtyping import Float
 
 
 @dataclass
