@@ -16,11 +16,13 @@ class Benchmark:
     Args:
         name: Name of the benchmark.
         metadata: Benchmark metadata.
+        negate: Negate the underlying function.
     """
 
-    def __init__(self, name: str, metadata: BenchmarkMetadata) -> None:
+    def __init__(self, name: str, metadata: BenchmarkMetadata, negate: bool) -> None:
         self.name = name
         self.metadata = metadata
+        self.negate = negate
 
     @abstractmethod
     def evaluate_points(
@@ -39,15 +41,26 @@ class Benchmark:
 
 
 class BencherBenchmark(Benchmark):
-    """Benchmark implementation using Bencher."""
+    """Benchmark implementation using Bencher.
 
-    def __init__(self, name: str, metadata: BenchmarkMetadata | None = None) -> None:
+    Bencher defines its benchmarks as minimization problems. Since BoTorch expects
+    maximization problems, we negate all of Bencher's benchmarks by default (with
+    negate=True).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        metadata: BenchmarkMetadata | None = None,
+        *,
+        negate: bool = True,
+    ) -> None:
         if metadata is None:
             metadata = BENCHMARK_METADATA.get(name)
             if metadata is None:
                 msg = f"Metadata not found for benchmark '{name}'."
                 raise ValueError(msg)
-        super().__init__(name, metadata)
+        super().__init__(name, metadata, negate=negate)
         self.bencher_client = BencherClient()
 
     def evaluate_points(
@@ -71,4 +84,7 @@ class BencherBenchmark(Benchmark):
                 point=bencher_point,
             )
             evaluations.append(value)
-        return np.array(evaluations)
+        evaluations = np.array(evaluations)
+        if self.negate:
+            evaluations = -evaluations
+        return evaluations
