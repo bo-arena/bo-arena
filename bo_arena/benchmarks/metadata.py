@@ -30,7 +30,17 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             lower_bounds=np.zeros(60),
             upper_bounds=np.ones(60),
         ),
-    ),  # TODO(Thomas-Christie): Check these values.
+    ),
+    "mopta08": BenchmarkMetadata(
+        input_dim=124,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(124),
+            upper_bounds=np.ones(124),
+        ),
+    ),
     "lasso-dna": BenchmarkMetadata(
         input_dim=180,
         input_type=ValueType.CONTINUOUS,
@@ -39,6 +49,36 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
         input_space=ContinuousInputSpace(
             lower_bounds=np.zeros(180),
             upper_bounds=np.ones(180),
+        ),
+    ),
+    "svm": BenchmarkMetadata(
+        input_dim=388,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(388),
+            upper_bounds=np.ones(388),
+        ),
+    ),
+    "mujoco-ant": BenchmarkMetadata(
+        input_dim=888,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(888),
+            upper_bounds=np.ones(888),
+        ),
+    ),
+    "mujoco-humanoid": BenchmarkMetadata(
+        input_dim=6392,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(6392),
+            upper_bounds=np.ones(6392),
         ),
     ),
 }
