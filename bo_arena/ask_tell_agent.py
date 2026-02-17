@@ -39,8 +39,9 @@ class AskTellAgent:
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "M D"]:
         """Return points to evaluate next.
 
-        NOTE: Agents may return fewer than `n` points (e.g. during initialization phases
-        where random exploration points are used before fitting a surrogate model).
+        Note:
+            Agents may return fewer than `n` points (e.g. during initialization phases
+            where random exploration points are used before fitting a surrogate model).
 
         Args:
             n: Maximum number of points to select (used for batch BO).
