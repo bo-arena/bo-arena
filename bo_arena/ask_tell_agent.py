@@ -36,16 +36,21 @@ class AskTellAgent:
         raise NotImplementedError
 
     @abstractmethod
-    def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
+    def ask(self, n: int, seed: int) -> Float[np.ndarray, "M D"]:
         """Return points to evaluate next.
 
+        Note:
+            Agents may return fewer than `n` points (e.g. during initialization phases
+            where random exploration points are used before fitting a surrogate model).
+
         Args:
-            n: Number of points to select (used for batch BO).
+            n: Maximum number of points to select (used for batch BO).
             seed: Random seed for reproducibility. Implementations should use this
                 seed for any stochastic operations to ensure deterministic behavior.
 
         Returns:
-            Points selected by the agent for evaluation.
+            Points selected by the agent for evaluation, with shape (M, D) where
+            1 <= M <= n.
         """
         raise NotImplementedError
 

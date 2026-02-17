@@ -124,14 +124,17 @@ class Arena:
                     "is_best_observation": is_best_observation,
                 })
 
-        # Run core BO loop.
-        bo_loop_iters = (
-            self.n_total_evaluations - self.n_initial_points
-        ) // self.batch_size
-        for batch_idx in range(bo_loop_iters):
+        # Run core BO loop. Uses a while loop rather than a fixed iteration count
+        # because agents may return fewer points than requested (e.g. during
+        # initialization phases).
+        batch_idx = 0
+        while self.observed_data.n < self.n_total_evaluations:
+            remaining = self.n_total_evaluations - self.observed_data.n
+            n_ask = min(self.batch_size, remaining)
+
             # Ask the agent for new points to evaluate.
             start = time.time()
-            new_points = self.agent.ask(self.batch_size, self._next_seed())
+            new_points = self.agent.ask(n_ask, self._next_seed())
             ask_time = time.time() - start
 
             # Evaluate the benchmark at the new points.
@@ -150,12 +153,13 @@ class Arena:
 
             # Log iteration info (note, only logs info about the entire batch, not
             # individual points).
+            actual_batch_size = len(new_points)
             if self.logger is not None:
                 new_best_in_batch = np.max(new_observations) > np.max(
-                    self.observed_data.y[: -self.batch_size]
+                    self.observed_data.y[:-actual_batch_size]
                 )
                 self.logger.info(
-                    f"BO loop iteration {batch_idx + 1}/{bo_loop_iters}:\n"
+                    f"BO loop iteration {batch_idx + 1}:\n"
                     f"  Total evaluations: {self.observed_data.n}\n"
                     f"  Ask time: {ask_time:.4f}s\n"
                     f"  Eval time: {eval_time:.4f}s\n"
@@ -166,10 +170,8 @@ class Arena:
 
             # Log detailed metrics to WandB for each point in the batch.
             if self.wandb_run is not None:
-                for iter in range(
-                    self.n_initial_points + batch_idx * self.batch_size,
-                    self.n_initial_points + (batch_idx + 1) * self.batch_size,
-                ):
+                batch_start = self.observed_data.n - actual_batch_size
+                for iter in range(batch_start, self.observed_data.n):
                     observation_val = float(self.observed_data.y[iter])
                     best_val_so_far = float(np.max(self.observed_data.y[: iter + 1]))
                     is_best_observation = observation_val == best_val_so_far
@@ -183,5 +185,7 @@ class Arena:
                         "eval_time": eval_time,
                         "tell_time": tell_time,
                     })
+
+            batch_idx += 1
 
         return self.observed_data
