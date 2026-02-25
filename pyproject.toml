@@ -5,7 +5,7 @@ name = "bo-arena"
 dynamic = ["version"]
 description = "Arena for simple, reliable, and efficient benchmarking of BO algorithms."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "jaxtyping",
     "wandb",
@@ -16,7 +16,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["beartype", "pytest", "ruff", "pre-commit", "jupytext", "ipykernel"]
+test = ["beartype", "pytest"]
+dev = ["ruff", "pre-commit", "jupytext", "ipykernel"]
 
 # PEP 518 Build System Configuration
 # See https://peps.python.org/pep-0518/
