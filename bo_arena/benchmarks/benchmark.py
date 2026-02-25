@@ -25,6 +25,10 @@ class Benchmark:
         self.name = name
         self.metadata = metadata
 
+    def __str__(self) -> str:
+        """Return a string representation of the benchmark."""
+        return self.name
+
     @abstractmethod
     def evaluate_points(
         self, points: Float[np.ndarray, "N D"]

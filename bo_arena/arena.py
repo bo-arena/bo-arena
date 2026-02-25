@@ -1,6 +1,5 @@
 """Arena for running BO experiments."""
 
-import hashlib
 import time
 from logging import Logger
 
@@ -10,6 +9,7 @@ from wandb import Run
 from bo_arena.agents import AskTellAgent
 from bo_arena.benchmarks import Benchmark
 from bo_arena.utils.dataset import Dataset
+from bo_arena.utils.miscellaneous import derive_seed, seed_everything
 
 
 class Arena:
@@ -22,10 +22,12 @@ class Arena:
         benchmark: The benchmark to run.
         agent: The BO agent to use for optimization.
         seed: Random seed for reproducibility.
-        n_initial_points: Number of initial points to sample.
-        n_total_evaluations: Number of total evaluations.
         batch_size: Number of points to evaluate in each BO iteration.
-        logger: (Optional) Logger for logging information.
+        n_initial_points: (Optional) number of initial points to sample - if None, uses
+            the benchmark's default.
+        n_total_evaluations: (Optional) number of total evaluations - if None, uses the
+            benchmark's default.
+        logger: (Optional) logger for logging information.
         wandb_run: (Optional) WandB run to use for logging.
     """
 
@@ -34,16 +36,17 @@ class Arena:
         benchmark: Benchmark,
         agent: AskTellAgent,
         seed: int,
-        n_initial_points: int | None,
-        n_total_evaluations: int | None,
         batch_size: int,
-        logger: Logger | None,
-        wandb_run: Run | None,
+        n_initial_points: int | None = None,
+        n_total_evaluations: int | None = None,
+        logger: Logger | None = None,
+        wandb_run: Run | None = None,
     ) -> None:
         self.benchmark = benchmark
         self.agent = agent
-        self.seed = seed
+        self._master_seed = seed
         self._seed_counter = 0
+        self._has_run = False
 
         if n_initial_points is None:
             self.n_initial_points = benchmark.metadata.default_n_initial_points
@@ -62,21 +65,11 @@ class Arena:
             np.empty((0, self.benchmark.metadata.input_dim)), np.empty(0)
         )
 
-    def _next_seed(self) -> int:
-        """Generate next seed using hash-based derivation for version independence.
-
-        Uses SHA-256 to derive seeds deterministically from the master seed and a
-        counter. This aims to ensure reproducibility as versions of dependencies get
-        bumped.
-
-        Returns:
-            A deterministic seed value derived from the master seed and current counter.
-        """
-        seed_string = f"seed_{self.seed}_{self._seed_counter}"
-        hash_bytes = hashlib.sha256(seed_string.encode()).digest()
+    def _derive_next_seed(self) -> int:
+        """Derive the next deterministic seed and increment the counter."""
+        seed = derive_seed(self._master_seed, self._seed_counter)
         self._seed_counter += 1
-        # Convert first 4 bytes to int
-        return int.from_bytes(hash_bytes[:4], byteorder="big")
+        return seed
 
     def run(self) -> Dataset:
         """Run the main BO loop.
@@ -92,17 +85,34 @@ class Arena:
 
         Returns:
             The dataset of all observed points and their corresponding observations.
+
+        Raises:
+            RuntimeError: If the method is called more than once on the same instance.
+                This is to prevent non-deterministic behavior due to the internal state
+                of the Arena (e.g. seed counter, agent) being modified across runs.
         """
+        if self._has_run:
+            msg = (
+                "Arena.run() has already been called. Create a new Arena instance for "
+                "each run."
+            )
+            raise RuntimeError(msg)
+        self._has_run = True
+
         # Sample initial points from the benchmark's input space and evaluate them.
+        seed = self._derive_next_seed()
+        seed_everything(seed)
         initial_points = self.benchmark.metadata.input_space.sample(
             self.n_initial_points,
-            self._next_seed(),
+            seed,
         )
         initial_observations = self.benchmark.evaluate_points(initial_points)
         self.observed_data = self.observed_data + Dataset(
             initial_points, initial_observations
         )
-        self.agent.tell_initial_data(self.observed_data, self._next_seed())
+        seed = self._derive_next_seed()
+        seed_everything(seed)
+        self.agent.tell_initial_data(self.observed_data, seed)
 
         # Log initial points info.
         if self.logger is not None:
@@ -134,7 +144,9 @@ class Arena:
 
             # Ask the agent for new points to evaluate.
             start = time.time()
-            new_points = self.agent.ask(n_ask, self._next_seed())
+            seed = self._derive_next_seed()
+            seed_everything(seed)
+            new_points = self.agent.ask(n_ask, seed)
             ask_time = time.time() - start
 
             # Evaluate the benchmark at the new points.
@@ -148,7 +160,9 @@ class Arena:
 
             # Provide the new observations to the agent.
             start = time.time()
-            self.agent.tell(new_points_dataset, self._next_seed())
+            seed = self._derive_next_seed()
+            seed_everything(seed)
+            self.agent.tell(new_points_dataset, seed)
             tell_time = time.time() - start
 
             # Log iteration info (note, only logs info about the entire batch, not

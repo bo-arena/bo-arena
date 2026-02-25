@@ -82,3 +82,17 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
         ),
     ),
 }
+
+
+SYNTHETIC_BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
+    "hartmann6d_embed_dim_100": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=20,
+        default_n_total_evaluations=200,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    )
+}
