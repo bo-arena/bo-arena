@@ -7,7 +7,7 @@ from logging import Logger
 import numpy as np
 from wandb import Run
 
-from bo_arena.ask_tell_agent import AskTellAgent
+from bo_arena.agents import AskTellAgent
 from bo_arena.benchmarks import Benchmark
 from bo_arena.utils.dataset import Dataset
 
