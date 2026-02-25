@@ -24,12 +24,16 @@ Thanks for your interest in contributing to `bo-arena`! We welcome contributions
    git checkout -b <new-feature-branch>
    ```
 4. **Make Changes**: Implement your changes in the codebase. Please ensure that your code includes appropriate tests.
-5. **Commit Changes**: Commit your changes with a clear and descriptive commit message.
-6. **Push Changes**: Push your changes to your forked repository:
+5. **Run Tests**: Before committing your changes, run the tests to ensure everything is working correctly:
+   ```
+   uv run pytest tests
+   ```
+6. **Commit Changes**: Commit your changes with a clear and descriptive commit message.
+7. **Push Changes**: Push your changes to your forked repository:
    ```
    git push origin <new-feature-branch>
    ```
-7. **Create a Pull Request**: Open a pull request in the [original `bo-arena` repository](https://github.com/Thomas-Christie/bo-arena).
+8. **Create a Pull Request**: Open a pull request in the [original `bo-arena` repository](https://github.com/Thomas-Christie/bo-arena).
 
 ## Notebooks
 
