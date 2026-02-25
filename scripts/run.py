@@ -1,0 +1,87 @@
+"""Main entry point for running BO agents on Bencher benchmarks using BO Arena."""
+
+import argparse
+import logging
+
+from bo_arena.agents import AGENTS
+from bo_arena.arena import Arena
+from bo_arena.benchmarks import BencherBenchmark
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Run Bayesian Optimization Benchmark")
+
+    parser.add_argument(
+        "--benchmark",
+        type=str,
+        default="lasso-dna",
+        help="Name of the benchmark to run (e.g., 'svm')",
+    )
+    parser.add_argument(
+        "--agent",
+        type=str,
+        default="random",
+        choices=list(AGENTS.keys()),
+        help=f"Agent to use. Available: {', '.join(AGENTS.keys())}",
+    )
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--n-init",
+        type=int,
+        default=None,
+        dest="n_initial_points",
+        help="Number of initial points",
+    )
+    parser.add_argument(
+        "--n-evals",
+        type=int,
+        default=None,
+        dest="n_total_evaluations",
+        help="Total number of evaluations",
+    )
+    parser.add_argument("--batch-size", type=int, default=1, help="Batch size")
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Run the benchmark."""
+    args = parse_args()
+
+    logger.info(f"Starting run with Benchmark: {args.benchmark}, Agent: {args.agent}")
+
+    # Initialize Benchmark
+    benchmark = BencherBenchmark(name=args.benchmark)
+    input_dim = benchmark.metadata.input_dim
+    if args.n_total_evaluations is None:
+        args.n_total_evaluations = benchmark.metadata.default_n_total_evaluations
+
+    # Initialize Agent
+    agent_class = AGENTS[args.agent]
+    agent = agent_class(
+        input_dim=input_dim, n_total_evaluations=args.n_total_evaluations
+    )
+
+    # Run Arena
+    bo_arena = Arena(
+        benchmark=benchmark,
+        agent=agent,
+        seed=args.seed,
+        n_initial_points=args.n_initial_points,
+        n_total_evaluations=args.n_total_evaluations,
+        batch_size=args.batch_size,
+        logger=logger,
+        wandb_run=None,
+    )
+
+    bo_arena.run()
+
+
+if __name__ == "__main__":
+    main()
