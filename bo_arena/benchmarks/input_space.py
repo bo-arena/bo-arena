@@ -42,7 +42,9 @@ class ContinuousInputSpace(InputSpace):
         self.upper_bounds = upper_bounds
         self.input_dim = lower_bounds.shape[0]
 
-    def sample(self, n_points: int, seed: int) -> Float[np.ndarray, "N D"]:
+    def sample(
+        self, n_points: int, seed: int
+    ) -> Float[np.ndarray, "N {self.input_dim}"]:
         """Sample points from the continuous input space via Sobol indices.
 
         Args:

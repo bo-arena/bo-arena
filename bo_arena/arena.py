@@ -9,7 +9,11 @@ from wandb import Run
 from bo_arena.agents import AskTellAgent
 from bo_arena.benchmarks import Benchmark
 from bo_arena.utils.dataset import Dataset
-from bo_arena.utils.miscellaneous import derive_seed, seed_everything
+from bo_arena.utils.miscellaneous import (
+    generate_seed,
+    seed_everything,
+    split_np,
+)
 
 
 class Arena:
@@ -44,8 +48,7 @@ class Arena:
     ) -> None:
         self.benchmark = benchmark
         self.agent = agent
-        self._master_seed = seed
-        self._seed_counter = 0
+        self._key = np.random.SeedSequence(seed)
         self._has_run = False
 
         if n_initial_points is None:
@@ -66,10 +69,9 @@ class Arena:
         )
 
     def _derive_next_seed(self) -> int:
-        """Derive the next deterministic seed and increment the counter."""
-        seed = derive_seed(self._master_seed, self._seed_counter)
-        self._seed_counter += 1
-        return seed
+        """Split the key and return a derived integer seed."""
+        self._key, subkey = split_np(self._key, n=2)
+        return generate_seed(subkey)
 
     def run(self) -> Dataset:
         """Run the main BO loop.

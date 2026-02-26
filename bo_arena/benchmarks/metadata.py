@@ -14,7 +14,7 @@ class BenchmarkMetadata:
     """Metadata that benchmarks must provide."""
 
     input_dim: int
-    input_type: ValueType
+    input_type: int  # protobuf ValueType enum (not a PEP-compliant type)
     default_n_initial_points: int
     default_n_total_evaluations: int
     input_space: InputSpace

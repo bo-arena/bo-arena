@@ -37,7 +37,7 @@ version = { attr = "bo_arena.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--import-mode=importlib"]
+addopts = ["--import-mode=importlib", "--jaxtyping-packages=bo_arena,beartype.beartype"]
 
 # Linting Configuration
 # See https://docs.astral.sh/ruff/rules/#legend
