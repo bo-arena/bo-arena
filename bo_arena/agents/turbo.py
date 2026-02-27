@@ -266,12 +266,12 @@ class TuRBO(AskTellAgent):
             seed: Random seed for reproducibility. Implementations should use this
                 seed for any stochastic operations to ensure deterministic behavior.
 
+        Returns:
+            Points selected by the agent for evaluation.
+
         Raises:
             RuntimeError: If the TuRBO state has not been initialized with
                 `tell_initial_data`.
-
-        Returns:
-            Points selected by the agent for evaluation.
         """
         if self.state is None:
             msg = "TuRBO state has not been initialized. Call tell_initial_data first."
