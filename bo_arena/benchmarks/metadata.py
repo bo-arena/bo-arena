@@ -94,5 +94,15 @@ SYNTHETIC_BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             lower_bounds=np.zeros(100),
             upper_bounds=np.ones(100),
         ),
-    )
+    ),
+    "hartmann6d_embed_dim_300": BenchmarkMetadata(
+        input_dim=300,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=20,
+        default_n_total_evaluations=500,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(300),
+            upper_bounds=np.ones(300),
+        ),
+    ),
 }

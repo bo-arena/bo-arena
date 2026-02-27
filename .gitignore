@@ -208,3 +208,6 @@ __marimo__/
 
 # Other file types to ignore
 *.ipynb
+
+# Regression test reports (ephemeral, not checked in)
+tests/regression_reports/

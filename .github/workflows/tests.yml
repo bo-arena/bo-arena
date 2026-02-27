@@ -12,7 +12,7 @@ jobs:
         strategy:
             matrix:
                 os: ["ubuntu-latest", "macos-latest"]
-                python-version: ["3.11", "3.12", "3.13", "3.14"]
+                python-version: ["3.11", "3.14"]
             fail-fast: true
         runs-on: ${{ matrix.os }}
         steps:
@@ -34,4 +34,4 @@ jobs:
               run: uv sync --frozen --extra test
 
             - name: Run Tests
-              run: uv run pytest tests
+              run: uv run pytest -m "not regression" tests

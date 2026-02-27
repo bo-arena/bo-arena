@@ -1,0 +1,59 @@
+name: Regression Tests
+
+on:
+  # Trigger manually from the Actions tab, optionally scoped to specific agents.
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: >
+          Comma-separated agents to test (e.g. random,gp_ucb).
+          Leave empty to test all registered agents.
+        required: false
+        default: ""
+  # Trigger automatically when a PR is labelled "run-regression-tests".
+  pull_request:
+    types: [labeled]
+
+jobs:
+  regression:
+    name: Run Regression Tests
+    # Only run for manual dispatches or the specific PR label.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'run-regression-tests')
+    timeout-minutes: 720
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra test
+
+      - name: Run regression tests
+        run: |
+          AGENTS="${{ inputs.agents }}"
+          if [ -n "$AGENTS" ]; then
+            uv run pytest -m regression -s --agents "$AGENTS" tests/test_regression.py
+          else
+            uv run pytest -m regression -s tests/test_regression.py
+          fi
+
+      - name: Upload regression report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: regression-report
+          path: tests/regression_reports/
+          if-no-files-found: ignore
