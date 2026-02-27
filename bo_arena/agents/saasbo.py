@@ -1,0 +1,154 @@
+"""SAASBO agent."""
+
+import numpy as np
+import torch
+from botorch.acquisition.logei import qLogExpectedImprovement
+from botorch.fit import fit_fully_bayesian_model_nuts
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.transforms import Standardize
+from botorch.optim import optimize_acqf
+from jaxtyping import Float
+
+from bo_arena.agents.ask_tell_agent import AskTellAgent
+from bo_arena.utils.dataset import Dataset
+
+# TODO(Colin-Doumont): What about the seeds?
+
+
+class SAASBO(AskTellAgent):
+    """Sparse Axis-Aligned Subspace Bayesian Optimization (SAASBO).
+
+    This agent implements the method described in "High-Dimensional Bayesian
+    Optimization with Sparse Axis-Aligned Subspaces" by Eriksson & Jankowiak (2021),
+    which places strong priors on the lengthscales to avoid overfitting.
+
+    Reference:
+        Eriksson, D., & Jankowiak, M. (2021). High-Dimensional Bayesian Optimization
+        with Sparse Axis-Aligned Subspaces. Conference on Uncertainty in Artificial
+        Intelligence (UAI).
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        dtype: torch.dtype = torch.float64,
+        device: torch.device | str = "cpu",
+        warmup_steps: int = 512,
+        num_samples: int = 256,
+        thinning: int = 16,
+    ) -> None:
+        """Initialize the SAASBO agent.
+
+        Args:
+            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            dtype: The torch dtype to use for the model and data.
+            device: The torch device to use for the model and data.
+            warmup_steps: Number of warmup steps for HMC sampling.
+            num_samples: Number of HMC samples to draw.
+            thinning: Thinning factor for HMC samples (keeps every Nth sample).
+        """
+        self.dtype = dtype
+        self.device = device
+        self.input_dim = input_dim
+        self.warmup_steps = warmup_steps
+        self.num_samples = num_samples
+        self.thinning = thinning
+
+        self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
+        self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
+        self.model = None
+
+        # Bounds are always [0,1]^d since Bencher normalizes inputs
+        self.bounds = torch.stack([
+            torch.zeros(self.input_dim, dtype=self.dtype, device=self.device),
+            torch.ones(self.input_dim, dtype=self.dtype, device=self.device),
+        ])
+
+    def __str__(self) -> str:
+        """Return a string representation of the agent."""
+        return "saasbo"
+
+    def _fit_model(self) -> None:
+        """Fit a SAAS GP model using HMC (NUTS) sampling."""
+        self.model = SaasFullyBayesianSingleTaskGP(
+            train_X=self.train_X,
+            train_Y=self.train_y,
+            outcome_transform=Standardize(m=1),
+        )
+        fit_fully_bayesian_model_nuts(
+            self.model,
+            warmup_steps=self.warmup_steps,
+            num_samples=self.num_samples,
+            thinning=self.thinning,
+            disable_progbar=True,
+            jit_compile=True,
+        )
+
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Provide initial observations to the agent and fit the SAAS GP model.
+
+        Args:
+            data: Initial observations to provide to the agent.
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
+        """
+        self.train_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        self.train_y = torch.tensor(
+            data.y, dtype=self.dtype, device=self.device
+        ).unsqueeze(-1)
+        self._fit_model()
+
+    def tell(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Update the agent with new observations and refit the SAAS GP model.
+
+        Args:
+            data: Observations corresponding to the points requested
+                in the previous `ask` call.
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
+        """
+        new_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        new_y = torch.tensor(data.y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+
+        self.train_X = torch.cat([self.train_X, new_X])
+        self.train_y = torch.cat([self.train_y, new_y])
+        self._fit_model()
+
+    def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # noqa: ARG002
+        """Select the next points to evaluate using Log Expected Improvement (qLogEI).
+
+        This method optimizes the qLogEI acquisition function using MCMC samples from
+        the SAAS model.
+
+        Args:
+            n: Number of points to select (used for batch BO).
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
+
+        Returns:
+            Points selected by the agent for evaluation.
+
+        Raises:
+            RuntimeError: If the model has not been initialized with
+                `tell_initial_data`.
+        """
+        if self.model is None:
+            msg = "Model has not been initialized. Call tell_initial_data first."
+            raise RuntimeError(msg)
+
+        best_f = self.train_y.max()
+
+        # Use qLogEI for both single and batch cases since SAAS model uses MCMC samples
+        acq_func = qLogExpectedImprovement(
+            model=self.model,
+            best_f=best_f,
+        )
+        candidates, _ = optimize_acqf(
+            acq_func,
+            bounds=self.bounds,
+            q=n,
+            num_restarts=3,
+            raw_samples=5000,
+        )
+
+        return candidates.detach().cpu().numpy()

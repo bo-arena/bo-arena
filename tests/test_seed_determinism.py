@@ -23,6 +23,8 @@ def test_seed_determinism(agent_name: str) -> None:
             agent=agent,
             seed=seed,
             batch_size=1,
+            n_initial_points=10,
+            n_total_evaluations=12,
         )
         return arena.run()
 
@@ -46,6 +48,8 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
             agent=agent,
             seed=seed,
             batch_size=1,
+            n_initial_points=10,
+            n_total_evaluations=12,
         )
         return arena.run()
 
