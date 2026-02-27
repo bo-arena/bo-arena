@@ -13,6 +13,7 @@ dependencies = [
     "scipy",
     "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold",
     "torch",
+    "botorch",
 ]
 
 [project.optional-dependencies]

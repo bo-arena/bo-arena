@@ -3,5 +3,15 @@
 from .ask_tell_agent import AskTellAgent
 from .random import Random
 from .registry import AGENTS
+from .saasbo import SAASBO
+from .turbo import TuRBO
+from .vanilla_bo import VanillaBO
 
-__all__ = ["AGENTS", "AskTellAgent", "Random"]
+__all__ = [
+    "AGENTS",
+    "SAASBO",
+    "AskTellAgent",
+    "Random",
+    "TuRBO",
+    "VanillaBO",
+]
