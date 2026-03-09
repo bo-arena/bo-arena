@@ -1,4 +1,4 @@
-"""Main entry point for running BO agents on Bencher benchmarks using BO Arena."""
+"""Script for testing out agents locally, without full WandB and logging set up."""
 
 import argparse
 import logging

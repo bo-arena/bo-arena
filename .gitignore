@@ -211,3 +211,8 @@ __marimo__/
 
 # Regression test reports (ephemeral, not checked in)
 tests/regression_reports/
+
+# Experiment results and logs
+results/
+logs/
+wandb/
