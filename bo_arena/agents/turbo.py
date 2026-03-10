@@ -92,7 +92,7 @@ class TuRBO(AskTellAgent):
 
     Reference:
         Eriksson, D., et al. (2019). Scalable Global Optimization via Local Bayesian
-        Optimization. Advances in Neural Information Processing Systems.
+        Optimization. Neural Information Processing Systems (NeurIPS).
     """
 
     def __init__(
@@ -100,6 +100,7 @@ class TuRBO(AskTellAgent):
         input_dim: int,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
+        **kwargs: dict,  # noqa: ARG002
     ) -> None:
         """Initialize the TuRBO agent.
 
@@ -107,6 +108,7 @@ class TuRBO(AskTellAgent):
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
+            kwargs: Additional arguments.
         """
         self.dtype = dtype
         self.device = device
@@ -125,12 +127,7 @@ class TuRBO(AskTellAgent):
         return "turbo"
 
     def _fit_model(self) -> None:
-        """Fit a SingleTaskGP model (Matérn kernel) using ExactMarginalLogLikelihood.
-
-        Args:
-            max_cholesky_size: Maximum size for Cholesky decomposition.
-                Defaults to infinity (always use Cholesky).
-        """
+        """Fit a SingleTaskGP model (Matérn kernel) using ExactMarginalLogLikelihood."""
         likelihood = GaussianLikelihood(noise_constraint=Interval(5e-4, 0.2))
         covar_module = ScaleKernel(
             MaternKernel(

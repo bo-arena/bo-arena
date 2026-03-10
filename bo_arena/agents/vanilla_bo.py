@@ -34,6 +34,7 @@ class VanillaBO(AskTellAgent):
         input_dim: int,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
+        **kwargs: dict,  # noqa: ARG002
     ) -> None:
         """Initialize the VanillaBO agent.
 
@@ -41,6 +42,7 @@ class VanillaBO(AskTellAgent):
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
+            kwargs: Additional arguments.
         """
         self.dtype = dtype
         self.device = device
