@@ -374,15 +374,20 @@ class BAxUS(AskTellAgent):
 
         return tr_lb, tr_ub
 
-    # TODO(Colin-Doumont): Let BAxUS generate its own initial points
-    def tell_initial_data(self, data: Dataset, seed: int) -> None:
-        """Provide initial observations to the agent and fit the SingleTaskGP model.
+    def generate_initial_points(self, n: int, seed: int) -> Float[np.ndarray, "N D"]:
+        """Generate initial points in the low-dimensional subspace and project up.
+
+        Initializes the BAxUS state and embedding matrix early, generates Sobol points
+        in [-1,1]^target_dim, then projects them to the full input space.
 
         Args:
-            data: Initial observations to provide to the agent.
-            seed: Random seed for reproducibility. Implementations should use this
-                seed for any stochastic operations to ensure deterministic behavior.
+            n: Number of initial points to generate.
+            seed: Random seed for reproducibility.
+
+        Returns:
+            Initial points in [0,1]^d for the Arena to evaluate.
         """
+        # Initialize state and embedding matrix early
         self.state = BAxUSState(
             dim=self.input_dim,
             eval_budget=self.n_total_evaluations,
@@ -393,6 +398,39 @@ class BAxUS(AskTellAgent):
             self.state.d_init,
             generator=generator,
         ).to(dtype=self.dtype, device=self.device)
+
+        # Generate Sobol points in [-1,1]^target_dim
+        sobol = SobolEngine(self.state.target_dim, scramble=True, seed=seed)
+        X_target = 2 * sobol.draw(n).to(dtype=self.dtype, device=self.device) - 1
+
+        # Project X to full-dimensional input space, i.e. [-1,1]^d
+        X_full = X_target @ self.S
+
+        # BO-Arena assumes input space is [0,1]^d
+        X_normalized = normalize(X=X_full, bounds=self.bounds)
+
+        return X_normalized.detach().cpu().numpy()
+
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:
+        """Provide initial observations to the agent and fit the SingleTaskGP model.
+
+        Args:
+            data: Initial observations to provide to the agent.
+            seed: Random seed for reproducibility. Implementations should use this
+                seed for any stochastic operations to ensure deterministic behavior.
+        """
+        if self.state is None:
+            # Fallback: state not initialized by generate_initial_points
+            self.state = BAxUSState(
+                dim=self.input_dim,
+                eval_budget=self.n_total_evaluations,
+            )
+            generator = torch.Generator(device=self.device).manual_seed(seed)
+            self.S = embedding_matrix(
+                self.state.dim,
+                self.state.d_init,
+                generator=generator,
+            ).to(dtype=self.dtype, device=self.device)
 
         # BAxUS assumes input space is [-1,1]^d
         X_normalized = torch.tensor(data.X, dtype=self.dtype, device=self.device)
@@ -478,12 +516,18 @@ class BAxUS(AskTellAgent):
                 self.train_y = torch.empty(0, 1, dtype=self.dtype, device=self.device)
                 self.model = None
 
-                # Fill up the restart buffer
-                # TODO(Colin-Doumont): Let BAxUS generate its own initial points
-                sobol = SobolEngine(self.input_dim, scramble=True, seed=seed)
-                self._restart_buffer = sobol.draw(self.n_init).to(
-                    dtype=self.dtype, device=self.device
+                # Generate Sobol points in [-1,1]^target_dim
+                sobol = SobolEngine(self.state.target_dim, scramble=True, seed=seed)
+                X_target = (
+                    2 * sobol.draw(self.n_init).to(dtype=self.dtype, device=self.device)
+                    - 1
                 )
+
+                # Project X to full-dimensional input space, i.e. [-1,1]^d
+                X_full = X_target @ self.S
+
+                # BO-Arena assumes input space is [0,1]^d
+                self._restart_buffer = normalize(X=X_full, bounds=self.bounds)
 
             else:
                 msg = (
@@ -580,7 +624,7 @@ class BAxUS(AskTellAgent):
                 X_cand = X_cand.unsqueeze(0)
                 candidates = thompson_sampling(X_cand, num_samples=n).squeeze(0)
 
-        # Project X to full-dimensional input space
+        # Project X to full-dimensional input space, i.e. [-1,1]^d
         X_next = candidates @ self.S
 
         # BO-Arena assumes input space is [0,1]^d
