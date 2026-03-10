@@ -8,6 +8,7 @@ from wandb import Run
 
 from bo_arena.agents import AskTellAgent
 from bo_arena.benchmarks import Benchmark
+from bo_arena.benchmarks.input_space import ContinuousInputSpace
 from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import (
     generate_seed,
@@ -113,7 +114,17 @@ class Arena:
                 self.n_initial_points,
                 seed,
             )
-        initial_observations = self.benchmark.evaluate_points(initial_points)
+        initial_points = initial_points.astype(np.float32)
+        input_space = self.benchmark.metadata.input_space
+        if isinstance(input_space, ContinuousInputSpace):
+            initial_points = np.clip(
+                initial_points,
+                input_space.lower_bounds.astype(np.float32),
+                input_space.upper_bounds.astype(np.float32),
+            )
+        initial_observations = self.benchmark.evaluate_points(initial_points).astype(
+            np.float32
+        )
         self.observed_data = self.observed_data + Dataset(
             initial_points, initial_observations
         )
@@ -155,10 +166,19 @@ class Arena:
             seed_everything(seed)
             new_points = self.agent.ask(n_ask, seed)
             ask_time = time.time() - start
+            new_points = new_points.astype(np.float32)
+            if isinstance(input_space, ContinuousInputSpace):
+                new_points = np.clip(
+                    new_points,
+                    input_space.lower_bounds.astype(np.float32),
+                    input_space.upper_bounds.astype(np.float32),
+                )
 
             # Evaluate the benchmark at the new points.
             start = time.time()
-            new_observations = self.benchmark.evaluate_points(new_points)
+            new_observations = self.benchmark.evaluate_points(new_points).astype(
+                np.float32
+            )
             eval_time = time.time() - start
 
             # Update the observed data with the new points and observations.

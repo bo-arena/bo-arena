@@ -7,7 +7,6 @@ from jaxtyping import Float
 from scipy.stats import qmc
 
 
-# TODO(Thomas-Christie): Add __str__ methods for providing sampling method for logging?
 class InputSpace:
     """Base class for input spaces."""
 
