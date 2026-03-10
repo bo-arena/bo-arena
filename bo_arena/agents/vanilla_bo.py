@@ -13,8 +13,6 @@ from jaxtyping import Float
 from bo_arena.agents.ask_tell_agent import AskTellAgent
 from bo_arena.utils.dataset import Dataset
 
-# TODO(Colin-Doumont): What about the seeds?
-
 
 class VanillaBO(AskTellAgent):
     """Hvarfner's Vanilla BO.
