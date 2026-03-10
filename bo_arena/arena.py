@@ -73,7 +73,7 @@ class Arena:
         self._key, subkey = split_np(self._key, n=2)
         return generate_seed(subkey)
 
-    def run(self) -> Dataset:
+    def run(self) -> Dataset:  # noqa: PLR0915
         """Run the main BO loop.
 
         Runs the main Bayesian optimization loop, which consists of:
@@ -102,12 +102,17 @@ class Arena:
         self._has_run = True
 
         # Sample initial points from the benchmark's input space and evaluate them.
+        # Agents may override generate_initial_points to provide custom initialization.
         seed = self._derive_next_seed()
         seed_everything(seed)
-        initial_points = self.benchmark.metadata.input_space.sample(
-            self.n_initial_points,
-            seed,
-        )
+        custom_points = self.agent.generate_initial_points(self.n_initial_points, seed)
+        if custom_points is not None:
+            initial_points = custom_points
+        else:
+            initial_points = self.benchmark.metadata.input_space.sample(
+                self.n_initial_points,
+                seed,
+            )
         initial_observations = self.benchmark.evaluate_points(initial_points)
         self.observed_data = self.observed_data + Dataset(
             initial_points, initial_observations
