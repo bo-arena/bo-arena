@@ -66,7 +66,8 @@ class Arena:
         self.logger = logger
         self.wandb_run = wandb_run
         self.observed_data = Dataset(
-            np.empty((0, self.benchmark.metadata.input_dim)), np.empty(0)
+            np.empty((0, self.benchmark.metadata.input_dim), dtype=np.float32),
+            np.empty(0, dtype=np.float32),
         )
 
     def _derive_next_seed(self) -> int:

@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from bo_arena.agents.random import Random
 from bo_arena.agents.registry import AGENTS
 from bo_arena.arena import Arena
 from bo_arena.benchmarks.synthetic_benchmarks import Hartmann6D
@@ -57,6 +58,24 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
     result_2 = run_arena(seed=123)
 
     assert not np.array_equal(result_1.X, result_2.X)
+
+
+def test_observed_data_is_float32() -> None:
+    """Arena.run() should return float32 arrays for both X and y."""
+    benchmark = Hartmann6D(embed_dim=100)
+    agent = Random(input_dim=benchmark.metadata.input_dim)
+    arena = Arena(
+        benchmark=benchmark,
+        agent=agent,
+        seed=42,
+        batch_size=1,
+        n_initial_points=5,
+        n_total_evaluations=7,
+    )
+    result = arena.run()
+
+    assert result.X.dtype == np.float32
+    assert result.y.dtype == np.float32
 
 
 def test_seed_splitting_is_deterministic() -> None:
