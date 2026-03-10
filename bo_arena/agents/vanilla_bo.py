@@ -34,7 +34,7 @@ class VanillaBO(AskTellAgent):
         input_dim: int,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
-        **kwargs: dict,  # noqa: ARG002
+        **kwargs: object,  # noqa: ARG002
     ) -> None:
         """Initialize the VanillaBO agent.
 

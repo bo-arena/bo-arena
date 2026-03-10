@@ -49,11 +49,14 @@ class BAxUSState:
     def __post_init__(self) -> None:
         """Initialize the subspace dimensionality and split parameters."""
         self.n_splits = round(math.log(self.dim, self.new_bins_on_split + 1))
-        self.d_init = 1 + np.argmin(
-            np.abs(
-                (1 + np.arange(self.new_bins_on_split))
-                * (1 + self.new_bins_on_split) ** self.n_splits
-                - self.dim
+        self.d_init = int(
+            1
+            + np.argmin(
+                np.abs(
+                    (1 + np.arange(self.new_bins_on_split))
+                    * (1 + self.new_bins_on_split) ** self.n_splits
+                    - self.dim
+                )
             )
         )
         self.target_dim = self.d_init
@@ -268,7 +271,7 @@ class BAxUS(AskTellAgent):
         input_dim: int,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
-        **kwargs: dict,
+        **kwargs: object,
     ) -> None:
         """Initialize the BAxUS agent.
 
@@ -282,7 +285,7 @@ class BAxUS(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
-        self.n_total_evaluations = kwargs["n_total_evaluations"]
+        self.n_total_evaluations: int | None = kwargs.get("n_total_evaluations")  # type: ignore[attr-defined]
 
         self.train_X: torch.tensor | None = None
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
@@ -304,6 +307,16 @@ class BAxUS(AskTellAgent):
     def __str__(self) -> str:
         """Return a string representation of the agent."""
         return "baxus"
+
+    def _create_state(self) -> BAxUSState:
+        """Create a new BAxUSState, validating that n_total_evaluations is set."""
+        if self.n_total_evaluations is None:
+            msg = (
+                "n_total_evaluations is required for BAxUS. "
+                "Pass it as a keyword argument to the constructor."
+            )
+            raise RuntimeError(msg)
+        return BAxUSState(dim=self.input_dim, eval_budget=self.n_total_evaluations)
 
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model (Matérn kernel) in the low-dimensional subspace."""
@@ -388,10 +401,7 @@ class BAxUS(AskTellAgent):
             Initial points in [0,1]^d for the Arena to evaluate.
         """
         # Initialize state and embedding matrix early
-        self.state = BAxUSState(
-            dim=self.input_dim,
-            eval_budget=self.n_total_evaluations,
-        )
+        self.state = self._create_state()
         generator = torch.Generator(device=self.device).manual_seed(seed)
         self.S = embedding_matrix(
             self.state.dim,
@@ -421,10 +431,7 @@ class BAxUS(AskTellAgent):
         """
         if self.state is None:
             # Fallback: state not initialized by generate_initial_points
-            self.state = BAxUSState(
-                dim=self.input_dim,
-                eval_budget=self.n_total_evaluations,
-            )
+            self.state = self._create_state()
             generator = torch.Generator(device=self.device).manual_seed(seed)
             self.S = embedding_matrix(
                 self.state.dim,
@@ -498,10 +505,7 @@ class BAxUS(AskTellAgent):
 
             elif self.state.target_dim == self.state.dim:
                 # Completely reset trust region
-                self.state = BAxUSState(
-                    dim=self.input_dim,
-                    eval_budget=self.n_total_evaluations,
-                )
+                self.state = self._create_state()
                 generator = torch.Generator(device=self.device).manual_seed(seed)
                 self.S = embedding_matrix(
                     self.state.dim,
