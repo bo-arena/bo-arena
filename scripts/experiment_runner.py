@@ -55,6 +55,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size")
     parser.add_argument(
+        "--hostname",
+        type=str,
+        default="127.0.0.1",
+        help="Hostname of the Bencher server",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=50051,
+        help="Port of the Bencher server",
+    )
+    parser.add_argument(
         "--no-wandb",
         action="store_true",
         help="Disable WandB logging",
@@ -84,7 +96,9 @@ def main() -> None:
     args = parse_args()
 
     # Initialize Benchmark and Agent
-    benchmark = BencherBenchmark(name=args.benchmark)
+    benchmark = BencherBenchmark(
+        name=args.benchmark, hostname=args.hostname, port=args.port
+    )
     metadata = benchmark.metadata
     input_dim = metadata.input_dim
 
