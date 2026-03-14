@@ -138,6 +138,8 @@ celerybeat.pid
 .env
 .envrc
 .venv
+.venv-cpu
+.venv-gpu
 env/
 venv/
 ENV/
@@ -208,6 +210,7 @@ __marimo__/
 
 # Other file types to ignore
 *.ipynb
+*.sif
 
 # Regression test reports (ephemeral, not checked in)
 tests/regression_reports/
@@ -216,3 +219,6 @@ tests/regression_reports/
 results/
 logs/
 wandb/
+
+# Other
+slurm/bencher_host.txt

@@ -46,6 +46,18 @@ def parse_args() -> argparse.Namespace:
         help="Total number of evaluations",
     )
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size")
+    parser.add_argument(
+        "--hostname",
+        type=str,
+        default="127.0.0.1",
+        help="Hostname of the Bencher server",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=50051,
+        help="Port of the Bencher server",
+    )
 
     return parser.parse_args()
 
@@ -57,7 +69,9 @@ def main() -> None:
     logger.info(f"Starting run with Benchmark: {args.benchmark}, Agent: {args.agent}")
 
     # Initialize Benchmark
-    benchmark = BencherBenchmark(name=args.benchmark)
+    benchmark = BencherBenchmark(
+        name=args.benchmark, hostname=args.hostname, port=args.port
+    )
     input_dim = benchmark.metadata.input_dim
     if args.n_total_evaluations is None:
         args.n_total_evaluations = benchmark.metadata.default_n_total_evaluations

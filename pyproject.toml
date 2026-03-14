@@ -11,14 +11,17 @@ dependencies = [
     "wandb",
     "numpy",
     "scipy",
-    "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold",
+    "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold@ac156d44505e2eae1a5f5266feef47325d0b91a2",
     "torch",
     "botorch",
+    "gpytorch",
 ]
 
 [project.optional-dependencies]
 test = ["beartype", "pytest"]
 dev = ["ruff", "pre-commit", "jupytext", "ipykernel"]
+cpu = ["torch"]
+cu128 = ["torch"]
 
 # PEP 518 Build System Configuration
 # See https://peps.python.org/pep-0518/
@@ -169,3 +172,22 @@ max-complexity = 18
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu128" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

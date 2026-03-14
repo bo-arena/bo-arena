@@ -46,16 +46,30 @@ class Benchmark:
 
 
 class BencherBenchmark(Benchmark):
-    """Benchmark implementation using Bencher."""
+    """Benchmark implementation using Bencher.
 
-    def __init__(self, name: str, metadata: BenchmarkMetadata | None = None) -> None:
+    Args:
+        name: Name of the benchmark.
+        metadata: Benchmark metadata. If None, will be looked up in BENCHMARK_METADATA
+          using the name.
+        hostname: Hostname of the Bencher server.
+        port: Port of the Bencher server.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        metadata: BenchmarkMetadata | None = None,
+        hostname: str = "127.0.0.1",
+        port: int = 50051,
+    ) -> None:
         if metadata is None:
             metadata = BENCHMARK_METADATA.get(name)
             if metadata is None:
                 msg = f"Metadata not found for benchmark '{name}'."
                 raise ValueError(msg)
         super().__init__(name, metadata)
-        self.bencher_client = BencherClient()
+        self.bencher_client = BencherClient(hostname=hostname, port=port)
 
     def evaluate_points(
         self, points: Float[np.ndarray, "N D"]
