@@ -222,3 +222,4 @@ wandb/
 
 # Other
 slurm/bencher_host.txt
+slurm/config.sh

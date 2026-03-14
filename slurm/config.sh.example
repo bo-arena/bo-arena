@@ -1,0 +1,9 @@
+# Path to your bo-arena repository on the cluster
+REPO=/path/to/bo-arena
+
+# Directory for SLURM job output logs
+LOGS=/path/to/logs
+
+# SLURM partition names for CPU and GPU jobs
+CPU_PARTITION=cpu-partition
+GPU_PARTITION=gpu-partition
