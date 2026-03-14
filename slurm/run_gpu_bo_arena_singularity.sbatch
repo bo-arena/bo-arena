@@ -1,15 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=run_gpu_bo_arena_singularity
 #SBATCH --mem=16G
-#SBATCH --partition=2080-galvani
 #SBATCH --gres=gpu:1
 #SBATCH --nodes=1
 #SBATCH --time=06:00:00
-#SBATCH -o /mnt/lustre/work/hennig/hmx892/logs/%j_%x_%a.out
-#SBATCH --chdir=/mnt/lustre/work/hennig/hmx892/repos/bo-arena
 
-REPO=/mnt/lustre/work/hennig/hmx892/repos/bo-arena
-BENCHER_HOST_FILE=/mnt/lustre/work/hennig/hmx892/repos/bo-arena/slurm/bencher_host.txt
+REPO=$(pwd)
+BENCHER_HOST_FILE=$REPO/slurm/bencher_host.txt
 if [ ! -f "$BENCHER_HOST_FILE" ] || [ "$(cat $BENCHER_HOST_FILE)" = "OFFLINE" ]; then
     echo "Bencher server is offline. Start run_bencher_singularity.sbatch first."
     exit 1
@@ -23,12 +20,12 @@ SEED=42
 
 # Run the bo-arena Singularity container
 singularity exec \
-    --bind /mnt/lustre/work/hennig/hmx892/repos/bo-arena:/mnt/lustre/work/hennig/hmx892/repos/bo-arena \
+    --bind "$REPO:/workspace/bo-arena" \
     --nv \
     --env TMPDIR=/tmp \
     images/gpu_bo_arena.sif \
     bash -c "
-        cd $REPO
+        cd /workspace/bo-arena
         source .venv-gpu/bin/activate
         python scripts/local_runner.py \
             --benchmark $BENCHMARK \

@@ -1,13 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=run_bencher_singularity
 #SBATCH --mem=16G
-#SBATCH --partition=cpu-galvani
 #SBATCH --nodes=1
 #SBATCH --time=2-00:00:00
-#SBATCH -o /mnt/lustre/work/hennig/hmx892/logs/%j_%x_%a.out
-#SBATCH --chdir=/mnt/lustre/work/hennig/hmx892/repos/bo-arena
 
-BENCHER_HOST_FILE=/mnt/lustre/work/hennig/hmx892/repos/bo-arena/slurm/bencher_host.txt
+BENCHER_HOST_FILE=$(pwd)/slurm/bencher_host.txt
 
 cleanup() {
     echo "OFFLINE" > $BENCHER_HOST_FILE

@@ -2,9 +2,9 @@ Bootstrap: docker
 From: python:3.13
 
 %setup
-	mkdir -p ${SINGULARITY_ROOTFS}/mnt/lustre/work/hennig/hmx892/repos/bo-arena
+	mkdir -p ${SINGULARITY_ROOTFS}/workspace/bo-arena
 
 %post
 	pip install --root-user-action=ignore uv
-	cd /mnt/lustre/work/hennig/hmx892/repos/bo-arena
+	cd /workspace/bo-arena
 	UV_PROJECT_ENVIRONMENT=.venv-cpu uv sync --frozen --extra cpu
