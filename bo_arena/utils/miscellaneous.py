@@ -20,19 +20,6 @@ def seed_everything(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 
-def split_np(seed_seq: np.random.SeedSequence, n: int) -> list[np.random.SeedSequence]:
-    """Split a NumPy SeedSequence into n child SeedSequences.
-
-    Args:
-        seed_seq: The master SeedSequence to split.
-        n: The number of child SeedSequences to create.
-
-    Returns:
-        A list of n child SeedSequences derived from the master seed.
-    """
-    return seed_seq.spawn(n)
-
-
 def generate_seed(seed_seq: np.random.SeedSequence) -> int:
     """Generate a random integer seed from a NumPy SeedSequence.
 

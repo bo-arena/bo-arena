@@ -13,7 +13,6 @@ from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import (
     generate_seed,
     seed_everything,
-    split_np,
 )
 
 
@@ -70,11 +69,6 @@ class Arena:
             np.empty(0, dtype=np.float32),
         )
 
-    def _derive_next_seed(self) -> int:
-        """Split the key and return a derived integer seed."""
-        self._key, subkey = split_np(self._key, n=2)
-        return generate_seed(subkey)
-
     def run(self) -> Dataset:  # noqa: PLR0915
         """Run the main BO loop.
 
@@ -86,6 +80,12 @@ class Arena:
         If a logger is provided, logs information about each iteration, including
         the number of evaluations, times taken for each step, and the best observation
         so far. If a WandB run is provided, logs detailed metrics for each evaluation.
+
+        Seed derivation uses a tree structure rather than a chain. The master key is
+        split into an init branch and a loop branch; each branch spawns all its
+        children upfront. Since ``SeedSequence.spawn(n+1)[:n]`` produces the same
+        children as ``spawn(n)``, a new method can be added by increasing the spawn
+        count without changing any previously derived seeds.
 
         Returns:
             The dataset of all observed points and their corresponding observations.
@@ -103,9 +103,16 @@ class Arena:
             raise RuntimeError(msg)
         self._has_run = True
 
+        # Split master key into independent branches for init and loop phases.
+        # Init-phase keys are spawned upfront so that each method gets a fixed
+        # spawn index. Adding a new method means increasing the spawn count —
+        # spawn(n+1)[:n] produces the same children as spawn(n).
+        init_key, loop_key = self._key.spawn(2)
+        gen_init_key, tell_init_key = init_key.spawn(2)
+
         # Sample initial points from the benchmark's input space and evaluate them.
         # Agents may override generate_initial_points to provide custom initialization.
-        seed = self._derive_next_seed()
+        seed = generate_seed(gen_init_key)
         seed_everything(seed)
         custom_points = self.agent.generate_initial_points(self.n_initial_points, seed)
         if custom_points is not None:
@@ -129,7 +136,7 @@ class Arena:
         self.observed_data = self.observed_data + Dataset(
             initial_points, initial_observations
         )
-        seed = self._derive_next_seed()
+        seed = generate_seed(tell_init_key)
         seed_everything(seed)
         self.agent.tell_initial_data(self.observed_data, seed)
 
@@ -161,9 +168,16 @@ class Arena:
             remaining = self.n_total_evaluations - self.observed_data.n
             n_ask = min(self.batch_size, remaining)
 
+            # Each iteration gets its own branch so adding iterations can't
+            # shift other iterations' seeds. Keys within the iteration are
+            # spawned upfront so new per-iteration methods can be added by
+            # increasing the spawn count.
+            iter_key = loop_key.spawn(1)[0]
+            ask_key, tell_key = iter_key.spawn(2)
+
             # Ask the agent for new points to evaluate.
             start = time.time()
-            seed = self._derive_next_seed()
+            seed = generate_seed(ask_key)
             seed_everything(seed)
             new_points = self.agent.ask(n_ask, seed)
             ask_time = time.time() - start
@@ -188,7 +202,7 @@ class Arena:
 
             # Provide the new observations to the agent.
             start = time.time()
-            seed = self._derive_next_seed()
+            seed = generate_seed(tell_key)
             seed_everything(seed)
             self.agent.tell(new_points_dataset, seed)
             tell_time = time.time() - start

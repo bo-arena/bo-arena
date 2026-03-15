@@ -8,7 +8,7 @@ from bo_arena.agents.registry import AGENTS
 from bo_arena.arena import Arena
 from bo_arena.benchmarks.synthetic_benchmarks import Hartmann6D
 from bo_arena.utils.dataset import Dataset
-from bo_arena.utils.miscellaneous import generate_seed, split_np
+from bo_arena.utils.miscellaneous import generate_seed
 
 
 @pytest.mark.parametrize("agent_name", AGENTS.keys())
@@ -78,33 +78,58 @@ def test_observed_data_is_float32() -> None:
     assert result.y.dtype == np.float32
 
 
-def test_seed_splitting_is_deterministic() -> None:
-    """Splitting a SeedSequence must return the same values every time."""
+def test_seed_spawning_is_deterministic() -> None:
+    """Spawning from a SeedSequence must return the same values every time."""
     for _ in range(5):
         key = np.random.SeedSequence(42)
-        key, subkey = split_np(key, n=2)
-        seed_a = generate_seed(subkey)
+        seed_a = generate_seed(key.spawn(2)[0])
 
         key = np.random.SeedSequence(42)
-        key, subkey = split_np(key, n=2)
-        seed_b = generate_seed(subkey)
+        seed_b = generate_seed(key.spawn(2)[0])
 
         assert seed_a == seed_b
+
+
+def test_spawn_is_append_stable() -> None:
+    """spawn(n+1)[:n] must produce the same children as spawn(n).
+
+    This is the property that makes the tree-based seeding strategy in Arena
+    forward-compatible: adding a new method only increases the spawn count,
+    and existing children keep their spawn indices.
+    """
+    key = np.random.SeedSequence(42)
+    a, b = key.spawn(2)
+
+    key = np.random.SeedSequence(42)
+    a3, b3, _c3 = key.spawn(3)
+
+    assert generate_seed(a) == generate_seed(a3)
+    assert generate_seed(b) == generate_seed(b3)
 
 
 @pytest.mark.parametrize(
     ("master_seed", "expected_seeds"),
     [
-        (0, [673228719, 3581274545, 1745761672]),
-        (42, [4091952314, 3908812709, 2424979062]),
-        (123456, [2431930328, 3878087563, 2539469541]),
+        (0, [4088532484, 3581274545, 476252562]),
+        (42, [3142992634, 3908812709, 1436910793]),
+        (123456, [419425804, 3878087563, 2422650640]),
     ],
 )
-def test_seed_splitting_hard_coded_values(
+def test_seed_spawning_hard_coded_values(
     master_seed: int, expected_seeds: list[int]
 ) -> None:
-    """Guard against SeedSequence splitting changing across NumPy versions."""
+    """Guard against SeedSequence.spawn changing across NumPy versions.
+
+    Exercises the same tree structure used by Arena.run(): master key spawns
+    init_key and loop_key, init_key spawns two children, loop_key spawns one
+    iteration key which spawns one child.
+    """
     key = np.random.SeedSequence(master_seed)
-    for expected in expected_seeds:
-        key, subkey = split_np(key, n=2)
-        assert generate_seed(subkey) == expected
+    init_key, loop_key = key.spawn(2)
+    gen_init_key, tell_init_key = init_key.spawn(2)
+    iter_key = loop_key.spawn(1)[0]
+    ask_key = iter_key.spawn(1)[0]
+
+    assert generate_seed(gen_init_key) == expected_seeds[0]
+    assert generate_seed(tell_init_key) == expected_seeds[1]
+    assert generate_seed(ask_key) == expected_seeds[2]
