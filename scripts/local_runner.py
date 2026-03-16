@@ -78,7 +78,9 @@ def main() -> None:
 
     # Initialize Agent
     agent_class = AGENTS[args.agent]
-    agent = agent_class(input_dim=input_dim)
+    agent = agent_class(
+        input_dim=input_dim, n_total_evaluations=args.n_total_evaluations
+    )
 
     # Run Arena
     bo_arena = Arena(

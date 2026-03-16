@@ -43,7 +43,10 @@ def run_agent(agent_name: str, seed: int) -> np.ndarray:
         Observed y-values.
     """
     benchmark = Hartmann6D(embed_dim=300)
-    agent = AGENTS[agent_name](input_dim=benchmark.metadata.input_dim)
+    agent = AGENTS[agent_name](
+        input_dim=benchmark.metadata.input_dim,
+        n_total_evaluations=N_TOTAL_EVALUATIONS,
+    )
     arena = Arena(
         benchmark=benchmark,
         agent=agent,

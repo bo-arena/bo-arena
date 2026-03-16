@@ -18,7 +18,9 @@ def test_seed_determinism(agent_name: str) -> None:
     agent_cls = AGENTS[agent_name]
 
     def run_arena(seed: int) -> Dataset:
-        agent = agent_cls(input_dim=benchmark.metadata.input_dim)
+        agent = agent_cls(
+            input_dim=benchmark.metadata.input_dim, n_total_evaluations=12
+        )
         arena = Arena(
             benchmark=benchmark,
             agent=agent,
@@ -43,7 +45,9 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
     agent_cls = AGENTS[agent_name]
 
     def run_arena(seed: int) -> Dataset:
-        agent = agent_cls(input_dim=benchmark.metadata.input_dim)
+        agent = agent_cls(
+            input_dim=benchmark.metadata.input_dim, n_total_evaluations=12
+        )
         arena = Arena(
             benchmark=benchmark,
             agent=agent,
