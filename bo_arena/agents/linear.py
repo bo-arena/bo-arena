@@ -1,6 +1,7 @@
 """Linear BO agent."""
 
 import math
+from typing import override
 
 import gpytorch
 import numpy as np
@@ -44,7 +45,7 @@ def _root_linear_operator(
 
 def project_onto_unit_sphere(
     x: Float[torch.Tensor, "... D"],
-) -> Float[torch.Tensor, "... D_plus_1"]:
+) -> Float[torch.Tensor, "... D+1"]:
     """Project points onto a unit sphere via inverse stereographic projection.
 
     Maps points from R^d onto S^d (the d-dimensional unit sphere embedded in R^(d+1)).
@@ -102,7 +103,7 @@ class SphericalLinearKernel(Kernel):
 
         # ARD lengthscale prior and positivity constraint
         ls_prior = LogNormalPrior(
-            loc=math.sqrt(2) + math.log(1) * 0.5,
+            loc=math.sqrt(2),
             scale=math.sqrt(3),
         )
         ls_constraint = GreaterThan(0.025, transform=None, initial_value=ls_prior.mode)
@@ -132,10 +133,18 @@ class SphericalLinearKernel(Kernel):
         self._maxs = bounds[1]
         self._centers = (bounds[0] + bounds[1]) / 2.0
 
-    @property
-    def prediction_strategy(self) -> type:
+    @override
+    def prediction_strategy(
+        self,
+        train_inputs: Float[torch.Tensor, "N D"],
+        train_prior_dist: gpytorch.distributions.MultivariateNormal,
+        train_labels: Float[torch.Tensor, " N"],
+        likelihood: gpytorch.likelihoods.GaussianLikelihood,
+    ) -> LinearPredictionStrategy:
         """Use linear prediction strategy for efficient Woodbury-based inference."""
-        return LinearPredictionStrategy
+        return LinearPredictionStrategy(
+            train_inputs, train_prior_dist, train_labels, likelihood
+        )
 
     def forward(
         self,
@@ -160,6 +169,10 @@ class SphericalLinearKernel(Kernel):
         Returns:
             Kernel matrix or diagonal.
         """
+        if diag:
+            # The diagonal is always 1
+            return torch.ones(x1.shape[:-1], dtype=x1.dtype, device=x1.device)
+
         x1_equal_x2 = torch.equal(x1, x2)
 
         if self.normalize_lengthscale:
@@ -193,10 +206,6 @@ class SphericalLinearKernel(Kernel):
             )
 
         x1_ = _featurize(x1)
-
-        if diag:
-            # GPyTorch only calls forward with diag=True for k(x, x), so x1 == x2 always
-            return x1_.square().sum(dim=-1)
 
         if x1_equal_x2:
             return _root_linear_operator(x1_)
@@ -272,12 +281,11 @@ class LinearBO(AskTellAgent):
 
         mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
 
+        # Always use Cholesky (for Woodbury) + fast log-prob (for scaling to large N)
         with (
             gpytorch.settings.max_cholesky_size(float("inf")),
             gpytorch.settings.cholesky_max_tries(10),
-            gpytorch.settings.fast_computations(
-                log_prob=True, covar_root_decomposition=False, solves=False
-            ),
+            gpytorch.settings.fast_computations(log_prob=True),
         ):
             fit_gpytorch_mll(mll)
 
