@@ -30,7 +30,7 @@ from bo_arena.utils.dataset import Dataset
 class BAxUSState:
     """BAxUS state used to track the trust region adaptive subspace expansion."""
 
-    dim: int
+    input_dim: int  # Corresponds to the original (input) dimensionality of the problem
     eval_budget: int
     new_bins_on_split: int = 3
     d_init: int = dataclasses.field(init=False)  # Note: Post-initialized
@@ -48,14 +48,14 @@ class BAxUSState:
 
     def __post_init__(self) -> None:
         """Initialize the subspace dimensionality and split parameters."""
-        self.n_splits = round(math.log(self.dim, self.new_bins_on_split + 1))
+        self.n_splits = round(math.log(self.input_dim, self.new_bins_on_split + 1))
         self.d_init = int(
             1
             + np.argmin(
                 np.abs(
                     (1 + np.arange(self.new_bins_on_split))
                     * (1 + self.new_bins_on_split) ** self.n_splits
-                    - self.dim
+                    - self.input_dim
                 )
             )
         )
@@ -71,7 +71,7 @@ class BAxUSState:
     @property
     def failure_tolerance(self) -> int:
         """Calculate failures allowed before shrinking the trust region."""
-        if self.target_dim == self.dim:
+        if self.target_dim == self.input_dim:
             return self.target_dim
         k = math.floor(math.log(self.length_min / self.length_init, 0.5))
         return min(self.target_dim, max(1, math.floor(self.split_budget / k)))
@@ -287,7 +287,7 @@ class BAxUS(AskTellAgent):
         self.input_dim = input_dim
         self.n_total_evaluations: int | None = kwargs.get("n_total_evaluations")  # type: ignore[attr-defined]
 
-        self.train_X: torch.tensor | None = None
+        self.train_X: torch.Tensor | None = None
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
         self.model = None
         self.state: BAxUSState | None = None
@@ -316,7 +316,9 @@ class BAxUS(AskTellAgent):
                 "Pass it as a keyword argument to the constructor."
             )
             raise RuntimeError(msg)
-        return BAxUSState(dim=self.input_dim, eval_budget=self.n_total_evaluations)
+        return BAxUSState(
+            input_dim=self.input_dim, eval_budget=self.n_total_evaluations
+        )
 
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model (Matérn kernel) in the low-dimensional subspace."""
@@ -404,7 +406,7 @@ class BAxUS(AskTellAgent):
         self.state = self._create_state()
         generator = torch.Generator(device=self.device).manual_seed(seed)
         self.S = embedding_matrix(
-            self.state.dim,
+            self.state.input_dim,
             self.state.d_init,
             generator=generator,
         ).to(dtype=self.dtype, device=self.device)
@@ -421,23 +423,23 @@ class BAxUS(AskTellAgent):
 
         return X_normalized.detach().cpu().numpy()
 
-    def tell_initial_data(self, data: Dataset, seed: int) -> None:
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
         """Provide initial observations to the agent and fit the SingleTaskGP model.
 
         Args:
             data: Initial observations to provide to the agent.
             seed: Random seed for reproducibility. Implementations should use this
                 seed for any stochastic operations to ensure deterministic behavior.
+
+        Raises:
+            RuntimeError: If `generate_initial_points` has not been called first.
         """
         if self.state is None:
-            # Fallback: state not initialized by generate_initial_points
-            self.state = self._create_state()
-            generator = torch.Generator(device=self.device).manual_seed(seed)
-            self.S = embedding_matrix(
-                self.state.dim,
-                self.state.d_init,
-                generator=generator,
-            ).to(dtype=self.dtype, device=self.device)
+            msg = (
+                "BAxUS state has not been initialized. "
+                "generate_initial_points must be called before tell_initial_data."
+            )
+            raise RuntimeError(msg)
 
         # BAxUS assumes input space is [-1,1]^d
         X_normalized = torch.tensor(data.X, dtype=self.dtype, device=self.device)
@@ -486,7 +488,7 @@ class BAxUS(AskTellAgent):
         self.train_y = torch.cat([self.train_y, new_y])
 
         if self.state.restart_triggered:
-            if self.state.target_dim < self.state.dim:
+            if self.state.target_dim < self.state.input_dim:
                 # Increase target space
                 generator = torch.Generator(device=self.device).manual_seed(seed)
                 self.S, self.train_X = increase_embedding_and_observations(
@@ -503,13 +505,14 @@ class BAxUS(AskTellAgent):
                 self.state.success_counter = 0
                 self.state.restart_triggered = False
 
-            elif self.state.target_dim == self.state.dim:
+            elif self.state.target_dim == self.state.input_dim:
                 # Completely reset trust region
                 self.state = self._create_state()
+                self.state.target_dim = self.input_dim  # End of line 16 in Algorithm 1
                 generator = torch.Generator(device=self.device).manual_seed(seed)
                 self.S = embedding_matrix(
-                    self.state.dim,
-                    self.state.d_init,
+                    input_dim=self.state.input_dim,
+                    target_dim=self.state.input_dim,
                     generator=generator,
                 ).to(dtype=self.dtype, device=self.device)
 
@@ -536,7 +539,7 @@ class BAxUS(AskTellAgent):
             else:
                 msg = (
                     f"Impossible state: target_dim={self.state.target_dim} "
-                    f"> dim={self.state.dim}"
+                    f"> dim={self.state.input_dim}"
                 )
                 raise RuntimeError(msg)
 
