@@ -3,6 +3,8 @@
 import argparse
 import logging
 
+from acqf_opt import get_opt_kwargs
+
 from bo_arena.agents import AGENTS
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
@@ -29,6 +31,12 @@ def parse_args() -> argparse.Namespace:
         default="random",
         choices=list(AGENTS.keys()),
         help=f"Agent to use. Available: {', '.join(AGENTS.keys())}",
+    )
+    parser.add_argument(
+        "--acqf-opt-strategy",
+        type=str,
+        default="default",
+        choices=["default", "no_raasp", "raasp"],
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
@@ -72,14 +80,29 @@ def main() -> None:
     benchmark = BencherBenchmark(
         name=args.benchmark, hostname=args.hostname, port=args.port
     )
-    input_dim = benchmark.metadata.input_dim
-    if args.n_total_evaluations is None:
-        args.n_total_evaluations = benchmark.metadata.default_n_total_evaluations
+    metadata = benchmark.metadata
+    input_dim = metadata.input_dim
+
+    # Resolve n_init and n_tot
+    n_init = (
+        args.n_initial_points
+        if args.n_initial_points is not None
+        else metadata.default_n_initial_points
+    )
+    n_tot = (
+        args.n_total_evaluations
+        if args.n_total_evaluations is not None
+        else metadata.default_n_total_evaluations
+    )
+
+    opt_kwargs = get_opt_kwargs(args.acqf_opt_strategy)
 
     # Initialize Agent
     agent_class = AGENTS[args.agent]
     agent = agent_class(
-        input_dim=input_dim, n_total_evaluations=args.n_total_evaluations
+        input_dim=input_dim,
+        opt_kwargs=opt_kwargs,
+        n_total_evaluations=n_tot,
     )
 
     # Run Arena
@@ -87,8 +110,8 @@ def main() -> None:
         benchmark=benchmark,
         agent=agent,
         seed=args.seed,
-        n_initial_points=args.n_initial_points,
-        n_total_evaluations=args.n_total_evaluations,
+        n_initial_points=n_init,
+        n_total_evaluations=n_tot,
         batch_size=args.batch_size,
         logger=logger,
         wandb_run=None,

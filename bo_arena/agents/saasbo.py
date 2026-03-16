@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from botorch.acquisition.logei import qLogExpectedImprovement
 from botorch.fit import fit_fully_bayesian_model_nuts
+from botorch.generation import gen_candidates_scipy
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.transforms import Standardize
 from botorch.optim import optimize_acqf
@@ -29,6 +30,7 @@ class SAASBO(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
+        opt_kwargs: dict | None = None,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         warmup_steps: int = 512,
@@ -39,6 +41,9 @@ class SAASBO(AskTellAgent):
 
         Args:
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            opt_kwargs: Arguments passed to `optimize_acqf` for acquisition function
+              optimization. If None, defaults to the configuration used in the original
+              paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             warmup_steps: Number of warmup steps for HMC sampling.
@@ -48,6 +53,13 @@ class SAASBO(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
+        if opt_kwargs is None:
+            self.opt_kwargs = {
+                "raw_samples": 5000,
+                "num_restarts": 3,
+            }
+        else:
+            self.opt_kwargs = opt_kwargs
         self.warmup_steps = warmup_steps
         self.num_samples = num_samples
         self.thinning = thinning
@@ -145,8 +157,8 @@ class SAASBO(AskTellAgent):
             acq_func,
             bounds=self.bounds,
             q=n,
-            num_restarts=3,
-            raw_samples=5000,
+            gen_candidates=gen_candidates_scipy,
+            **self.opt_kwargs,
         )
 
         return candidates.detach().cpu().numpy()
