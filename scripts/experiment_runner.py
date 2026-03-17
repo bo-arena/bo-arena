@@ -9,6 +9,7 @@ import botorch
 import gpytorch
 import numpy as np
 import wandb
+from acqf_opt import get_opt_kwargs
 
 from bo_arena.agents import AGENTS
 from bo_arena.arena import Arena
@@ -37,6 +38,12 @@ def parse_args() -> argparse.Namespace:
         default="random",
         choices=list(AGENTS.keys()),
         help=f"Agent to use. Available: {', '.join(AGENTS.keys())}",
+    )
+    parser.add_argument(
+        "--acqf-opt-strategy",
+        type=str,
+        default="default",
+        choices=["default", "no_raasp", "raasp"],
     )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
@@ -102,9 +109,6 @@ def main() -> None:
     metadata = benchmark.metadata
     input_dim = metadata.input_dim
 
-    agent_class = AGENTS[args.agent]
-    agent = agent_class(input_dim=input_dim)
-
     # Resolve n_init and n_tot
     n_init = (
         args.n_initial_points
@@ -115,6 +119,15 @@ def main() -> None:
         args.n_total_evaluations
         if args.n_total_evaluations is not None
         else metadata.default_n_total_evaluations
+    )
+
+    opt_kwargs = get_opt_kwargs(args.acqf_opt_strategy)
+
+    agent_class = AGENTS[args.agent]
+    agent = agent_class(
+        input_dim=input_dim,
+        opt_kwargs=opt_kwargs,
+        n_total_evaluations=n_tot,
     )
 
     # Build experiment name and directory paths

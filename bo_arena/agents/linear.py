@@ -136,7 +136,7 @@ class SphericalLinearKernel(Kernel):
     @override
     def prediction_strategy(
         self,
-        train_inputs: Float[torch.Tensor, "N D"],
+        train_inputs: list[Float[torch.Tensor, "N D"]],
         train_prior_dist: gpytorch.distributions.MultivariateNormal,
         train_labels: Float[torch.Tensor, " N"],
         likelihood: gpytorch.likelihoods.GaussianLikelihood,
@@ -230,6 +230,7 @@ class LinearBO(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
+        opt_kwargs: dict | None = None,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         normalize_lengthscale: bool = False,  # noqa: FBT002
@@ -239,6 +240,9 @@ class LinearBO(AskTellAgent):
 
         Args:
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            opt_kwargs: Arguments passed to `optimize_acqf` for acquisition function
+              optimization. If None, defaults to the configuration used in the original
+              paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             normalize_lengthscale: If True, use ``softmax(ls).sqrt()`` as the effective
@@ -248,6 +252,21 @@ class LinearBO(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
+        if opt_kwargs is None:
+            self.opt_kwargs = {
+                "raw_samples": 512,
+                "num_restarts": 4,
+                "retry_on_optimization_warning": False,
+                "options": {
+                    "nonnegative": False,
+                    "sample_around_best": True,
+                    "sample_around_best_sigma": 0.1,
+                    "maxiter": 300,
+                    "batch_limit": 64,
+                },
+            }
+        else:
+            self.opt_kwargs = opt_kwargs
         self.normalize_lengthscale = normalize_lengthscale
 
         self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
@@ -285,7 +304,9 @@ class LinearBO(AskTellAgent):
         with (
             gpytorch.settings.max_cholesky_size(float("inf")),
             gpytorch.settings.cholesky_max_tries(10),
-            gpytorch.settings.fast_computations(log_prob=True),
+            gpytorch.settings.fast_computations(
+                log_prob=True, covar_root_decomposition=False, solves=False
+            ),
         ):
             fit_gpytorch_mll(mll)
 
@@ -355,25 +376,12 @@ class LinearBO(AskTellAgent):
                 best_f=best_f,
             )
 
-        # Acq. optim. configuration
-        options = {
-            "raw_samples": 512,
-            "num_restarts": 4,
-            "retry_on_optimization_warning": False,
-            "options": {
-                "nonnegative": False,
-                "sample_around_best": True,
-                "sample_around_best_sigma": 0.1,
-                "maxiter": 300,
-                "batch_limit": 64,
-            },
-        }
         candidates, _ = optimize_acqf(
             acq_func,
             bounds=self.bounds,
             q=n,
             gen_candidates=gen_candidates_scipy,
-            **options,
+            **self.opt_kwargs,
         )
 
         return candidates.detach().cpu().numpy()
