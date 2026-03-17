@@ -16,10 +16,12 @@ def get_opt_kwargs(strategy: str) -> dict | None:
     strategies: dict[str, dict | None] = {
         "default": None,
         "no_raasp": {
-            "num_restarts": 5,
             "raw_samples": 5000,
+            "num_restarts": 5,
         },
         "raasp": {
+            # sample_around_best=True doubles effective raw_samples:
+            # 2500 -> 5000, matching "no_raasp" above.
             "raw_samples": 2500,
             "num_restarts": 5,
             "retry_on_optimization_warning": False,
@@ -34,7 +36,10 @@ def get_opt_kwargs(strategy: str) -> dict | None:
     }
 
     if strategy not in strategies:
-        msg = f"Unknown acqf optimization strategy: {strategy!r}. Choose from {list(strategies.keys())}."  # noqa: E501
+        msg = (
+            f"Unknown acqf optimization strategy: {strategy!r}. "
+            f"Choose from {list(strategies.keys())}."
+        )
         raise ValueError(msg)
 
     return strategies[strategy]
