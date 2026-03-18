@@ -5,18 +5,24 @@
 #SBATCH --time=06:00:00
 
 REPO=$(pwd)
-BENCHER_HOST_FILE=$REPO/slurm/bencher_host.txt
-if [ ! -f "$BENCHER_HOST_FILE" ] || [ "$(cat $BENCHER_HOST_FILE)" = "OFFLINE" ]; then
-    echo "Bencher server is offline. Start run_bencher_singularity.sbatch first."
-    exit 1
-fi
-BENCHER_HOST=$(cat $BENCHER_HOST_FILE)
 
 BENCHMARK="lasso-dna"
 AGENT="vanilla_bo"
 SEED=42
 
-# Run the bo-arena Singularity container
+# Start bencher as a background sidecar
+singularity run images/bencher.sif &
+BENCHER_PID=$!
+trap "kill $BENCHER_PID" EXIT TERM
+
+# Wait for Bencher services to be ready
+echo "Starting up bencher server"
+for port in 50051 50053 50054 50055 50056 50057 50058 50059 50060; do
+    until nc -z 127.0.0.1 $port; do sleep 1; done
+done
+echo "Bencher server started"
+
+# Run the experiment
 singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --env TMPDIR=/tmp \
@@ -28,6 +34,6 @@ singularity exec \
             --benchmark $BENCHMARK \
             --agent $AGENT \
             --seed $SEED \
-            --hostname $BENCHER_HOST \
+            --hostname 127.0.0.1 \
             --port 50051
     "
