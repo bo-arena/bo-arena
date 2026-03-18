@@ -1,20 +1,19 @@
 """Acquisition function optimization strategy configurations."""
 
 
-def get_opt_kwargs(strategy: str) -> dict | None:
+def get_opt_kwargs(strategy: str) -> dict:
     """Return optimize_acqf keyword arguments for the given strategy name.
 
     Args:
-        strategy: One of "default", "no_raasp", or "raasp".
+        strategy: One of "no_raasp", or "raasp".
 
     Returns:
-        A dict of kwargs to pass to optimize_acqf, or None for the agent default.
+        A dict of kwargs to pass to optimize_acqf.
 
     Raises:
         ValueError: If an unknown strategy name is given.
     """
-    strategies: dict[str, dict | None] = {
-        "default": None,
+    strategies: dict[str, dict] = {
         "no_raasp": {
             "raw_samples": 5000,
             "num_restarts": 5,

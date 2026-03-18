@@ -3,8 +3,6 @@
 import argparse
 import logging
 
-from acqf_opt import get_opt_kwargs
-
 from bo_arena.agents import AGENTS
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
@@ -95,13 +93,11 @@ def main() -> None:
         else metadata.default_n_total_evaluations
     )
 
-    opt_kwargs = get_opt_kwargs(args.acqf_opt_strategy)
-
     # Initialize Agent
     agent_class = AGENTS[args.agent]
     agent = agent_class(
         input_dim=input_dim,
-        opt_kwargs=opt_kwargs,
+        acqf_opt_strategy=args.acqf_opt_strategy,
         n_total_evaluations=n_tot,
     )
 

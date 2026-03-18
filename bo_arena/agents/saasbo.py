@@ -11,6 +11,7 @@ from botorch.optim import optimize_acqf
 from jaxtyping import Float
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
+from bo_arena.utils.acqf_opt import get_opt_kwargs
 from bo_arena.utils.dataset import Dataset
 
 
@@ -30,36 +31,44 @@ class SAASBO(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
-        opt_kwargs: dict | None = None,
+        acqf_opt_strategy: str = "default",
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         warmup_steps: int = 512,
         num_samples: int = 256,
         thinning: int = 16,
+        **kwargs: object,  # noqa: ARG002
     ) -> None:
         """Initialize the SAASBO agent.
 
         Args:
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
-            opt_kwargs: Arguments passed to `optimize_acqf` for acquisition function
-              optimization. If None, defaults to the configuration used in the original
-              paper.
+            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
+              "default", "no_raasp", or "raasp". Setting "default" uses the same
+              settings as in the original paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             warmup_steps: Number of warmup steps for HMC sampling.
             num_samples: Number of HMC samples to draw.
             thinning: Thinning factor for HMC samples (keeps every Nth sample).
+            kwargs: Additional arguments.
+
+        Raises:
+            ValueError: If an unknown acqf_opt_strategy is given.
         """
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
-        if opt_kwargs is None:
+        if acqf_opt_strategy == "default":
             self.opt_kwargs = {
                 "raw_samples": 5000,
                 "num_restarts": 3,
             }
+        elif acqf_opt_strategy in {"no_raasp", "raasp"}:
+            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
         else:
-            self.opt_kwargs = opt_kwargs
+            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
+            raise ValueError(msg)
         self.warmup_steps = warmup_steps
         self.num_samples = num_samples
         self.thinning = thinning
