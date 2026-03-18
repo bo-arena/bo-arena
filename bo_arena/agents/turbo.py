@@ -99,6 +99,7 @@ class TuRBO(AskTellAgent):
         acqf_opt_strategy: str = "default",
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
+        use_dsp: bool = False,  # noqa: FBT002
         **kwargs: object,  # noqa: ARG002
     ) -> None:
         """Initialize the TuRBO agent.
@@ -110,6 +111,8 @@ class TuRBO(AskTellAgent):
               settings as in the original paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
+            use_dsp: If True, use the dimensionality-scaled prior (DSP) from Hvarfner
+              et al. (2024) instead of the default TuRBO kernel and priors.
             kwargs: Additional arguments.
 
         Raises:
@@ -118,6 +121,7 @@ class TuRBO(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
+        self.use_dsp = use_dsp
         if acqf_opt_strategy not in {"default", "no_raasp", "raasp"}:
             msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
             raise ValueError(msg)
@@ -133,31 +137,41 @@ class TuRBO(AskTellAgent):
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""
-        return "turbo"
+        return "turbo_dsp" if self.use_dsp else "turbo"
 
     def _fit_model(self) -> None:
-        """Fit a SingleTaskGP model (Matérn kernel) using ExactMarginalLogLikelihood."""
-        likelihood = GaussianLikelihood(noise_constraint=Interval(5e-4, 0.2))
-        covar_module = ScaleKernel(
-            MaternKernel(
-                nu=2.5,
-                ard_num_dims=self.input_dim,
-                lengthscale_constraint=Interval(0.005, 2.0),
-            ),
-            outputscale_constraint=Interval(0.05, 20.0),
-        )
-        self.model = SingleTaskGP(
-            self.train_X, self.train_y, covar_module=covar_module, likelihood=likelihood
-        )
+        """Fit a SingleTaskGP model using ExactMarginalLogLikelihood.
+
+        Uses the TuRBO Matérn kernel with explicit constraints as in the original paper
+        when use_dsp=False, or the BoTorch default SingleTaskGP with DSP priors when
+        use_dsp=True.
+        """
+        if self.use_dsp:
+            self.model = SingleTaskGP(self.train_X, self.train_y)
+        else:
+            likelihood = GaussianLikelihood(noise_constraint=Interval(5e-4, 0.2))
+            covar_module = ScaleKernel(
+                MaternKernel(
+                    nu=2.5,
+                    ard_num_dims=self.input_dim,
+                    lengthscale_constraint=Interval(0.005, 2.0),
+                ),
+                outputscale_constraint=Interval(0.05, 20.0),
+            )
+            self.model = SingleTaskGP(
+                self.train_X,
+                self.train_y,
+                covar_module=covar_module,
+                likelihood=likelihood,
+            )
+            # Initialize model hypers
+            self.model.initialize(**{
+                "covar_module.outputscale": 1.0,
+                "covar_module.base_kernel.lengthscale": 0.5,
+                "likelihood.noise": 0.005,
+            })
+
         mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
-
-        # Initialize model hypers
-        hypers = {}
-        hypers["covar_module.outputscale"] = 1.0
-        hypers["covar_module.base_kernel.lengthscale"] = 0.5
-        hypers["likelihood.noise"] = 0.005
-        self.model.initialize(**hypers)
-
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             fit_gpytorch_mll(mll)
 
@@ -176,7 +190,11 @@ class TuRBO(AskTellAgent):
             A tuple of (tr_lb, tr_ub) tensors in [0,1]^d space.
         """
         # Scale the TR to be proportional to the lengthscales
-        lengthscale = self.model.covar_module.base_kernel.lengthscale
+        if self.use_dsp:
+            # With DSP enabled, there is no ScaleKernel wrapping the base kernel
+            lengthscale = self.model.covar_module.lengthscale
+        else:
+            lengthscale = self.model.covar_module.base_kernel.lengthscale
         weights = lengthscale.squeeze().detach()
         weights = weights / weights.mean()
         weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
