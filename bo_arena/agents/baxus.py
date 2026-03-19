@@ -113,6 +113,8 @@ def embedding_matrix(
     input_dim: int,
     target_dim: int,
     generator: torch.Generator | None = None,
+    dtype: torch.dtype = torch.float64,
+    device: torch.device | str = "cpu",
 ) -> Float[torch.Tensor, "target_dim input_dim"]:
     """Create a sparse embedding matrix for dimensionality reduction.
 
@@ -123,16 +125,18 @@ def embedding_matrix(
         input_dim: The dimensionality of the original input space.
         target_dim: The dimensionality of the target subspace.
         generator: Optional random number generator for reproducibility.
+        dtype: The torch dtype for the output tensor.
+        device: The torch device for the output tensor.
 
     Returns:
         A (target_dim, input_dim) tensor representing the embedding matrix.
     """
     # Return identity matrix if target size greater than input size
     if target_dim >= input_dim:
-        return torch.eye(input_dim)
+        return torch.eye(input_dim, dtype=dtype, device=device)
 
     # Add 1 to indices for padding column in matrix
-    input_dims_perm = torch.randperm(input_dim, generator=generator) + 1
+    input_dims_perm = torch.randperm(input_dim, generator=generator, device=device) + 1
 
     # Split dims into almost equally-sized bins
     bins = torch.tensor_split(input_dims_perm, target_dim)
@@ -141,15 +145,19 @@ def embedding_matrix(
     bins = torch.nn.utils.rnn.pad_sequence(bins, batch_first=True)
 
     # Add one extra column for padding
-    mtrx = torch.zeros((target_dim, input_dim + 1))
+    mtrx = torch.zeros((target_dim, input_dim + 1), dtype=dtype, device=device)
 
     # Fill mask with random +/- 1 at indices
     mtrx = mtrx.scatter_(
         1,
         bins,
-        (2 * torch.randint(2, (target_dim, input_dim), generator=generator) - 1).to(
-            mtrx.dtype
-        ),
+        (
+            2
+            * torch.randint(
+                2, (target_dim, input_dim), generator=generator, device=device
+            )
+            - 1
+        ).to(mtrx.dtype),
     )
 
     # Cut off index zero as this corresponds to zero padding
@@ -200,7 +208,7 @@ def increase_embedding_and_observations(
         row = S[row_idx]
         idxs_non_zero = torch.nonzero(row)
         idxs_non_zero = idxs_non_zero[
-            torch.randperm(len(idxs_non_zero), generator=generator)
+            torch.randperm(len(idxs_non_zero), generator=generator, device=S.device)
         ].reshape(-1)
 
         if len(idxs_non_zero) <= 1:
@@ -224,7 +232,7 @@ def increase_embedding_and_observations(
 
         # Submatrix to stack on S_update
         S_stack = torch.zeros(
-            (n_row_bins - 1, len(row) + 1),
+            (n_row_bins - 1, len(row) + 1), dtype=S.dtype, device=S.device
         )
 
         # Fill with old values (add 1 to indices for padding column)
@@ -433,7 +441,9 @@ class BAxUS(AskTellAgent):
             self.state.input_dim,
             self.state.d_init,
             generator=generator,
-        ).to(dtype=self.dtype, device=self.device)
+            dtype=self.dtype,
+            device=self.device,
+        )
 
         # Generate Sobol points in [-1,1]^target_dim
         sobol = SobolEngine(self.state.target_dim, scramble=True, seed=seed)
@@ -538,7 +548,9 @@ class BAxUS(AskTellAgent):
                     input_dim=self.state.input_dim,
                     target_dim=self.state.input_dim,
                     generator=generator,
-                ).to(dtype=self.dtype, device=self.device)
+                    dtype=self.dtype,
+                    device=self.device,
+                )
 
                 # Purge local data
                 self.train_X = torch.empty(

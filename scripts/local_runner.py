@@ -3,6 +3,8 @@
 import argparse
 import logging
 
+import torch
+
 from bo_arena.agents import AGENTS
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
@@ -64,6 +66,20 @@ def parse_args() -> argparse.Namespace:
         default=50051,
         help="Port of the Bencher server",
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        choices=["cpu", "cuda"],
+        help="Device to run agent computations on",
+    )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="float64",
+        choices=["float32", "float64"],
+        help="Torch dtype for agent computations",
+    )
 
     return parser.parse_args()
 
@@ -95,10 +111,13 @@ def main() -> None:
 
     # Initialize Agent
     agent_class = AGENTS[args.agent]
+    dtype = torch.float32 if args.dtype == "float32" else torch.float64
     agent = agent_class(
         input_dim=input_dim,
         acqf_opt_strategy=args.acqf_opt_strategy,
         n_total_evaluations=n_tot,
+        device=args.device,
+        dtype=dtype,
     )
 
     # Run Arena
