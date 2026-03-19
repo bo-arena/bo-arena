@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import botorch
+import cpuinfo
 import gpytorch
 import numpy as np
 import wandb
@@ -168,6 +169,7 @@ def main() -> None:
         "git_commit": git_hash or "unknown",
         "botorch_version": botorch.__version__,
         "gpytorch_version": gpytorch.__version__,
+        "cpu": cpuinfo.get_cpu_info()["brand_raw"],
     }
 
     config_file = experiment_dir / "config.json"
