@@ -1,11 +1,13 @@
 """Main entry point for running BO arena experiments."""
 
 import argparse
+import json
 import logging
 import subprocess
 from pathlib import Path
 
 import botorch
+import cpuinfo
 import gpytorch
 import numpy as np
 import wandb
@@ -17,7 +19,6 @@ from bo_arena.benchmarks import BencherBenchmark
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT_DIR / "results"
-LOGS_DIR = ROOT_DIR / "logs"
 
 logger = logging.getLogger(__name__)
 
@@ -130,31 +131,63 @@ def main() -> None:
         n_total_evaluations=n_tot,
     )
 
-    # Build experiment name and directory paths
+    # Build experiment directory and file paths
+    # Structure: results/{benchmark}/{agent}/acqf_opt_{strategy}/
     problem_name = args.benchmark
     agent_name = str(agent)
-    experiment_name = f"{problem_name}_{agent_name}_n_init_{n_init}_n_tot_{n_tot}_bs_{args.batch_size}_seed_{args.seed}"  # noqa: E501
-    results_dir = RESULTS_DIR / problem_name / agent_name
-    log_dir = LOGS_DIR / problem_name / agent_name
-    results_dir.mkdir(parents=True, exist_ok=True)
-    log_dir.mkdir(parents=True, exist_ok=True)
+    acqf_opt_dir = f"acqf_opt_{args.acqf_opt_strategy}"
+    experiment_dir = RESULTS_DIR / problem_name / agent_name / acqf_opt_dir
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+
+    results_file = experiment_dir / f"seed_{args.seed}.npz"
+    log_file = experiment_dir / f"seed_{args.seed}.log"
 
     # Check for existing results/logs to avoid overwriting previous runs
-    results_file = results_dir / f"{experiment_name}.npz"
-    log_file = log_dir / f"{experiment_name}.log"
     if results_file.exists() or log_file.exists():
-        msg = "Experiment and/or log files already exist. Refusing to overwrite."
+        msg = (
+            f"Results or log file already exists for seed {args.seed} in "
+            f"{experiment_dir}. Refusing to overwrite."
+        )
         raise FileExistsError(msg)
+
+    # Build config and write to experiment directory (shared across seeds)
+    git_hash = subprocess.run(
+        ["git", "rev-parse", "HEAD"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=ROOT_DIR,
+    ).stdout.strip()
 
     config = {
         "benchmark": problem_name,
         "agent": agent_name,
-        "seed": args.seed,
+        "acqf_opt_strategy": args.acqf_opt_strategy,
         "n_initial_points": n_init,
         "n_total_evaluations": n_tot,
         "batch_size": args.batch_size,
+        "git_commit": git_hash or "unknown",
+        "botorch_version": botorch.__version__,
+        "gpytorch_version": gpytorch.__version__,
+        "cpu": cpuinfo.get_cpu_info()["brand_raw"],
     }
 
+    config_file = experiment_dir / "config.json"
+    try:
+        with config_file.open("x", encoding="utf-8") as f:
+            f.write(json.dumps(config, indent=2) + "\n")
+    except FileExistsError:
+        existing_config = json.loads(config_file.read_text())
+        if existing_config != config:
+            msg = (
+                f"Existing config.json in {experiment_dir} does not match current "
+                f"config. This likely means experiment parameters have changed.\n"
+                f"Existing: {existing_config}\n"
+                f"Current: {config}"
+            )
+            raise RuntimeError(msg) from None
+
+    # Set up logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s: %(message)s",
@@ -163,19 +196,9 @@ def main() -> None:
             logging.FileHandler(log_file),
         ],
     )
-    logger.info(f"Experiment: {experiment_name}")
+    wandb_group = f"{problem_name}/{agent_name}/{acqf_opt_dir}"
+    logger.info(f"Experiment: {wandb_group}, seed={args.seed}")
     logger.info(f"Config: {config}")
-    logger.info(
-        f"Versions: botorch={botorch.__version__}, gpytorch={gpytorch.__version__}"
-    )
-    git_hash = subprocess.run(
-        ["git", "rev-parse", "HEAD"],  # noqa: S607
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=ROOT_DIR,
-    ).stdout.strip()
-    logger.info(f"Git commit: {git_hash or 'unknown'}")
 
     # Initialize WandB
     wandb_run = None
@@ -183,9 +206,9 @@ def main() -> None:
         wandb_run = wandb.init(
             entity="bo-arena",
             project="bo-arena",
-            name=experiment_name,
-            group=f"{problem_name}_{agent_name}",
-            config=config,
+            name=f"seed_{args.seed}",
+            group=wandb_group,
+            config={**config, "seed": args.seed},
         )
 
     # Run Arena
