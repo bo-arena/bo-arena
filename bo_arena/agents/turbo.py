@@ -96,6 +96,7 @@ class TuRBO(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
+        acqf_opt_strategy: str = "default",
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         **kwargs: object,  # noqa: ARG002
@@ -104,13 +105,23 @@ class TuRBO(AskTellAgent):
 
         Args:
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
+              "default", "no_raasp", or "raasp". Setting "default" uses the same
+              settings as in the original paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             kwargs: Additional arguments.
+
+        Raises:
+            ValueError: If an unknown acqf_opt_strategy is given.
         """
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
+        if acqf_opt_strategy not in {"default", "no_raasp", "raasp"}:
+            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
+            raise ValueError(msg)
+        self.acqf_opt_strategy = acqf_opt_strategy
 
         self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
@@ -294,41 +305,52 @@ class TuRBO(AskTellAgent):
         tr_lb, tr_ub = self._get_trust_region_bounds(x_center, self.state.length)
 
         # Use Sobol to generate perturbations
-        n_candidates = min(100 * self.input_dim, 5000)
+        if self.acqf_opt_strategy == "default":
+            n_candidates = min(100 * self.input_dim, 5000)
+        elif self.acqf_opt_strategy in {"no_raasp", "raasp"}:
+            # For "no_raasp" and "raasp" we fix the number of candidates
+            n_candidates = 5000
         sobol = SobolEngine(self.input_dim, scramble=True, seed=seed)
-        pert = sobol.draw(n_candidates).to(dtype=self.dtype, device=self.device)
-        pert = tr_lb + (tr_ub - tr_lb) * pert
-
-        # Create a perturbation mask
-        prob_perturb = min(20.0 / self.input_dim, 1.0)
-        generator = torch.Generator(device=self.device).manual_seed(seed)
-        mask = (
-            torch.rand(
-                n_candidates,
-                self.input_dim,
-                dtype=self.dtype,
-                device=self.device,
-                generator=generator,
-            )
-            <= prob_perturb
+        sobol_samples = sobol.draw(n_candidates).to(
+            dtype=self.dtype, device=self.device
         )
-        # Ensure at least one dimension is perturbed for each candidate
-        ind = torch.where(mask.sum(dim=1) == 0)[0]
-        if len(ind) > 0:
-            mask[
-                ind,
-                torch.randint(
-                    0,
+        sobol_samples = tr_lb + (tr_ub - tr_lb) * sobol_samples
+
+        if self.acqf_opt_strategy in {"default", "raasp"}:
+            # Candidates are formed by perturbing (a subset of dimensions of) the
+            # center point within the trust region.
+            prob_perturb = min(20.0 / self.input_dim, 1.0)
+            generator = torch.Generator(device=self.device).manual_seed(seed)
+            mask = (
+                torch.rand(
+                    n_candidates,
                     self.input_dim,
-                    size=(len(ind),),
+                    dtype=self.dtype,
                     device=self.device,
                     generator=generator,
-                ),
-            ] = 1
+                )
+                <= prob_perturb
+            )
+            # Ensure at least one dimension is perturbed for each candidate
+            ind = torch.where(mask.sum(dim=1) == 0)[0]
+            if len(ind) > 0:
+                mask[
+                    ind,
+                    torch.randint(
+                        0,
+                        self.input_dim,
+                        size=(len(ind),),
+                        device=self.device,
+                        generator=generator,
+                    ),
+                ] = 1
 
-        # Create candidate points from the center with perturbations
-        X_cand = x_center.expand(n_candidates, self.input_dim).clone()
-        X_cand[mask] = pert[mask]
+            # Create candidate points from the center with perturbations
+            X_cand = x_center.expand(n_candidates, self.input_dim).clone()
+            X_cand[mask] = sobol_samples[mask]
+        else:
+            # For "no_raasp", candidates are sampled uniformly within the trust region
+            X_cand = sobol_samples
 
         # Sample on the candidate points using Thompson Sampling
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
