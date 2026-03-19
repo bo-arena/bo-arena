@@ -35,5 +35,7 @@ singularity exec \
             --agent $AGENT \
             --seed $SEED \
             --hostname 127.0.0.1 \
-            --port 50051
+            --port 50051 \
+            --device cpu \
+            --dtype float64
     "

@@ -10,6 +10,7 @@ import botorch
 import cpuinfo
 import gpytorch
 import numpy as np
+import torch
 import wandb
 
 from bo_arena.agents import AGENTS
@@ -74,6 +75,20 @@ def parse_args() -> argparse.Namespace:
         help="Port of the Bencher server",
     )
     parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        choices=["cpu", "cuda"],
+        help="Device to run agent computations on",
+    )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        default="float64",
+        choices=["float32", "float64"],
+        help="Torch dtype for agent computations",
+    )
+    parser.add_argument(
         "--no-wandb",
         action="store_true",
         help="Disable WandB logging",
@@ -122,10 +137,13 @@ def main() -> None:
     )
 
     agent_class = AGENTS[args.agent]
+    dtype = torch.float32 if args.dtype == "float32" else torch.float64
     agent = agent_class(
         input_dim=input_dim,
         acqf_opt_strategy=args.acqf_opt_strategy,
         n_total_evaluations=n_tot,
+        device=args.device,
+        dtype=dtype,
     )
 
     # Build experiment directory and file paths
@@ -167,6 +185,8 @@ def main() -> None:
         "botorch_version": botorch.__version__,
         "gpytorch_version": gpytorch.__version__,
         "cpu": cpuinfo.get_cpu_info()["brand_raw"],
+        "device": args.device,
+        "dtype": args.dtype,
     }
 
     config_file = experiment_dir / "config.json"
