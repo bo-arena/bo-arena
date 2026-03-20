@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import os
 import subprocess
 from pathlib import Path
 
@@ -217,9 +218,11 @@ def main() -> None:
     logger.info(f"Experiment: {wandb_group}, seed={args.seed}")
     logger.info(f"Config: {config}")
 
-    # Initialize WandB
+    # Initialize WandB in offline mode to avoid API throttling with many
+    # concurrent jobs. Upload results later with: wandb sync <wandb-dir>
     wandb_run = None
     if not args.no_wandb:
+        os.environ["WANDB_MODE"] = "offline"
         wandb_run = wandb.init(
             entity="bo-arena",
             project="bo-arena",

@@ -28,6 +28,7 @@ singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --nv \
     --env TMPDIR=/tmp \
+    --env WANDB_API_KEY=$WANDB_API_KEY \
     images/gpu_bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena

@@ -26,6 +26,7 @@ echo "Bencher server started"
 singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --env TMPDIR=/tmp \
+    --env WANDB_API_KEY=$WANDB_API_KEY \
     images/cpu_bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena

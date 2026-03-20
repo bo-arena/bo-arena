@@ -7,3 +7,6 @@ LOGS=/path/to/logs
 # SLURM partition names for CPU and GPU jobs
 CPU_PARTITION=cpu-partition
 GPU_PARTITION=gpu-partition
+
+# WandB API key
+WANDB_API_KEY=your-api-key-here
