@@ -86,7 +86,7 @@ class BencherBenchmark(Benchmark):
         for point in points:
             bencher_point = [
                 Value(type=self.metadata.input_type, value=float(d)) for d in point
-            ]  # TODO(Thomas-Christie): Will need to play with this.
+            ]
             value = self.bencher_client.evaluate_point(
                 benchmark_name=self.name,
                 point=bencher_point,

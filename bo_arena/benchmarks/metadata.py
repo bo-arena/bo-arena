@@ -8,7 +8,6 @@ from bencherscaffold.protoclasses.bencher_pb2 import ValueType
 from bo_arena.benchmarks.input_space import ContinuousInputSpace, InputSpace
 
 
-# TODO(Thomas-Christie): Move all input info to input_space?
 @dataclass(frozen=True)  # frozen=True makes them immutable
 class BenchmarkMetadata:
     """Metadata that benchmarks must provide."""
