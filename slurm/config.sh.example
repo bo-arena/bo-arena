@@ -8,5 +8,9 @@ LOGS=/path/to/logs
 CPU_PARTITION=cpu-partition
 GPU_PARTITION=gpu-partition
 
+# Command to make Singularity/Apptainer available (e.g. "module load tools/singularity").
+# Leave empty if singularity is already on PATH.
+SINGULARITY_SETUP_CMD=
+
 # WandB API key
 WANDB_API_KEY=your-api-key-here

@@ -4,6 +4,11 @@
 #SBATCH --nodes=1
 #SBATCH --time=01:00:00
 
+# Load Singularity/Apptainer if a setup command is configured
+if [ -n "$SINGULARITY_SETUP_CMD" ]; then
+    eval "$SINGULARITY_SETUP_CMD"
+fi
+
 # Set cache and tmp directories for Singularity
 export SINGULARITY_CACHEDIR=$SCRATCH
 export SINGULARITY_TMPDIR=$SCRATCH

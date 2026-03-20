@@ -6,6 +6,11 @@
 
 REPO=$(pwd)
 
+# Load Singularity/Apptainer if a setup command is configured
+if [ -n "$SINGULARITY_SETUP_CMD" ]; then
+    eval "$SINGULARITY_SETUP_CMD"
+fi
+
 BENCHMARK="lasso-dna"
 AGENT="vanilla_bo"
 SEED=42
