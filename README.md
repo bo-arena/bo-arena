@@ -16,7 +16,18 @@ Each experiment job is self-contained: it starts a `Bencher` server as a sidecar
 In order to run experiments, follow these steps:
 1. Copy `slurm/config.sh.example` to `slurm/config.sh` and fill in your cluster-specific paths and partition names. This file is gitignored and must be created by each user.
 2. Build the Singularity images using `slurm/submit.sh` (e.g. `bash slurm/submit.sh build_bencher_singularity.sbatch` and `bash slurm/submit.sh build_bo_arena_singularity.sbatch`). One person should build the images and share them with collaborators (e.g. via `cp` on the cluster) to ensure identical environments.
-3. Run `bo-arena` experiments using `bash slurm/submit.sh run_cpu_bo_arena_singularity.sbatch` or `bash slurm/submit.sh run_gpu_bo_arena_singularity.sbatch`. Each job starts its own `Bencher` sidecar automatically — no need to start a separate `Bencher` job first.
+3. Run experiments by specifying the benchmark, agent, and acquisition function optimization strategy:
+   ```bash
+   bash slurm/submit.sh run_agent_cpu.sbatch \
+       --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default
+   ```
+   This submits a SLURM job array that runs the agent across the first 10 experiment seeds (indices 0–9). To run the second batch of seeds, override the array range:
+   ```bash
+   bash slurm/submit.sh run_agent_cpu.sbatch \
+       --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default \
+       --array=10-19
+   ```
+   Each job starts its own `Bencher` sidecar automatically — no need to start a separate `Bencher` job first.
 4. Sync WandB results after experiments finish using `bash slurm/submit.sh sync_wandb.sbatch`. Experiments log to WandB in offline mode to avoid API rate limits with many concurrent jobs. The sync script uploads runs one at a time, moving successful uploads to `wandb/synced/`. Failed syncs are left in place so you can re-run the script to retry only those.
 
 All jobs should be submitted via `slurm/submit.sh` rather than `sbatch` directly — it sources `slurm/config.sh` and passes the cluster-specific `--chdir`, `--output`, and `--partition` flags to `sbatch`.

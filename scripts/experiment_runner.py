@@ -17,6 +17,7 @@ import wandb
 from bo_arena.agents import AGENTS
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
+from bo_arena.experiment_seeds import EXPERIMENT_SEEDS
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT_DIR / "results"
@@ -47,7 +48,13 @@ def parse_args() -> argparse.Namespace:
         default="default",
         choices=["default", "no_raasp", "raasp"],
     )
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument(
+        "--seed-idx",
+        type=int,
+        required=True,
+        dest="seed_idx",
+        help=f"Index into EXPERIMENT_SEEDS (0-{len(EXPERIMENT_SEEDS) - 1})",
+    )
     parser.add_argument(
         "--n-init",
         type=int,
@@ -117,6 +124,7 @@ def main() -> None:
         raise RuntimeError(msg)
 
     args = parse_args()
+    seed = EXPERIMENT_SEEDS[args.seed_idx]
 
     # Initialize Benchmark and Agent
     benchmark = BencherBenchmark(
@@ -155,13 +163,13 @@ def main() -> None:
     experiment_dir = RESULTS_DIR / problem_name / agent_name / acqf_opt_dir
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    results_file = experiment_dir / f"seed_{args.seed}.npz"
-    log_file = experiment_dir / f"seed_{args.seed}.log"
+    results_file = experiment_dir / f"seed_{seed}.npz"
+    log_file = experiment_dir / f"seed_{seed}.log"
 
     # Check for existing results/logs to avoid overwriting previous runs
     if results_file.exists() or log_file.exists():
         msg = (
-            f"Results or log file already exists for seed {args.seed} in "
+            f"Results or log file already exists for seed {seed} in "
             f"{experiment_dir}. Refusing to overwrite."
         )
         raise FileExistsError(msg)
@@ -215,7 +223,7 @@ def main() -> None:
         ],
     )
     wandb_group = f"{problem_name}/{agent_name}/{acqf_opt_dir}"
-    logger.info(f"Experiment: {wandb_group}, seed={args.seed}")
+    logger.info(f"Experiment: {wandb_group}, seed={seed}")
     logger.info(f"Config: {config}")
 
     # Initialize WandB in offline mode to avoid API throttling with many
@@ -226,16 +234,16 @@ def main() -> None:
         wandb_run = wandb.init(
             entity="bo-arena",
             project="bo-arena",
-            name=f"seed_{args.seed}",
+            name=f"seed_{seed}",
             group=wandb_group,
-            config={**config, "seed": args.seed},
+            config={**config, "seed": seed},
         )
 
     # Run Arena
     bo_arena = Arena(
         benchmark=benchmark,
         agent=agent,
-        seed=args.seed,
+        seed=seed,
         n_initial_points=n_init,
         n_total_evaluations=n_tot,
         batch_size=args.batch_size,
