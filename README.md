@@ -18,12 +18,12 @@ In order to run experiments, follow these steps:
 2. Build the Singularity images using `slurm/submit.sh` (e.g. `bash slurm/submit.sh build_bencher_singularity.sbatch` and `bash slurm/submit.sh build_bo_arena_singularity.sbatch`). One person should build the images and share them with collaborators (e.g. via `cp` on the cluster) to ensure identical environments.
 3. Run experiments by specifying the benchmark, agent, and acquisition function optimization strategy:
    ```bash
-   bash slurm/submit.sh run_agent_cpu.sbatch \
+   bash slurm/submit.sh run_experiment_cpu.sbatch \
        --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default
    ```
    This submits a SLURM job array that runs the agent across the first 10 experiment seeds (indices 0–9). To run the second batch of seeds, override the array range:
    ```bash
-   bash slurm/submit.sh run_agent_cpu.sbatch \
+   bash slurm/submit.sh run_experiment_cpu.sbatch \
        --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default \
        --array=10-19
    ```

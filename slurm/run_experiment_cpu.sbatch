@@ -6,7 +6,7 @@
 #SBATCH --array=0-9
 
 # Override --array to run different seed ranges, e.g.:
-#   bash slurm/submit.sh run_agent_cpu.sbatch --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default --array=10-19
+#   bash slurm/submit.sh run_experiment_cpu.sbatch --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default --array=10-19
 
 # Required environment variables (set via submit.sh --export):
 #   BENCHMARK          - benchmark name (e.g., "lasso-dna")
@@ -15,7 +15,7 @@
 
 if [ -z "$BENCHMARK" ] || [ -z "$AGENT" ] || [ -z "$ACQF_OPT_STRATEGY" ]; then
     echo "Error: BENCHMARK, AGENT, and ACQF_OPT_STRATEGY must be set."
-    echo "Usage: bash slurm/submit.sh run_agent_cpu.sbatch --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default"
+    echo "Usage: bash slurm/submit.sh run_experiment_cpu.sbatch --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default"
     exit 1
 fi
 
