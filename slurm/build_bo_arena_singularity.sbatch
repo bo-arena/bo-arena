@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=build_gpu_bo_arena_singularity
+#SBATCH --job-name=build_bo_arena_singularity
 #SBATCH --mem=16G
 #SBATCH --nodes=1
 #SBATCH --time=01:00:00
@@ -13,4 +13,4 @@ export APPTAINER_TMPDIR=$SCRATCH
 # Build the bo-arena Singularity container
 mkdir -p images
 REPO=$(pwd)
-singularity build --bind "$REPO:/workspace/bo-arena" --fakeroot images/gpu_bo_arena.sif slurm/gpu_bo_arena.def
+singularity build --bind "$REPO:/workspace/bo-arena" --fakeroot images/bo_arena.sif slurm/bo_arena.def

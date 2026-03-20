@@ -27,10 +27,10 @@ singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --env TMPDIR=/tmp \
     --env WANDB_API_KEY=$WANDB_API_KEY \
-    images/cpu_bo_arena.sif \
+    images/bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena
-        source .venv-cpu/bin/activate
+        source .venv/bin/activate
         python scripts/local_runner.py \
             --benchmark $BENCHMARK \
             --agent $AGENT \
