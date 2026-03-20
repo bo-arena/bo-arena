@@ -2,7 +2,7 @@
 #SBATCH --job-name=build_bencher_singularity
 #SBATCH --mem=16G
 #SBATCH --nodes=1
-#SBATCH --time=01:00:00
+#SBATCH --time=04:00:00
 
 # Load Singularity/Apptainer if a setup command is configured
 if [ -n "$SINGULARITY_SETUP_CMD" ]; then
