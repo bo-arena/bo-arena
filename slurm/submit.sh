@@ -29,4 +29,5 @@ sbatch \
     --chdir="$REPO" \
     -o "$LOGS/%j_%x_%a.out" \
     --partition="$PARTITION" \
-    "$SCRIPT_DIR/$SCRIPT" "$@"
+    "$@" \
+    "$SCRIPT_DIR/$SCRIPT"

@@ -8,6 +8,11 @@ LOGS=/path/to/logs
 CPU_PARTITION=cpu-partition
 GPU_PARTITION=gpu-partition
 
+# Path to the module system init script, needed in batch jobs where the module
+# command is not available by default (e.g. /etc/profile.d/lmod.sh).
+# Leave empty if module is already available or not needed.
+MODULES_INIT=
+
 # Command to make Singularity/Apptainer available (e.g. "module load tools/singularity").
 # Leave empty if singularity is already on PATH.
 SINGULARITY_SETUP_CMD=
