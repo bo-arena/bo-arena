@@ -19,12 +19,12 @@ In order to run experiments, follow these steps:
 3. Run experiments by specifying the benchmark, agent, and acquisition function optimization strategy:
    ```bash
    bash slurm/submit.sh run_experiment_cpu.sbatch \
-       --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default
+       --export=ALL,BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default
    ```
    This submits a SLURM job array that runs the agent across the first 10 experiment seeds (indices 0–9). To run the second batch of seeds, override the array range:
    ```bash
    bash slurm/submit.sh run_experiment_cpu.sbatch \
-       --export=BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default \
+       --export=ALL,BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default \
        --array=10-19
    ```
    Each job starts its own `Bencher` sidecar automatically — no need to start a separate `Bencher` job first.
