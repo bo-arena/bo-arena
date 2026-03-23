@@ -5,12 +5,9 @@
 #SBATCH --nodes=1
 #SBATCH --time=06:00:00
 
-REPO=$(pwd)
+source "$(pwd)/slurm/preamble.sh"
 
-# Load Singularity/Apptainer if a setup command is configured
-if [ -n "$SINGULARITY_SETUP_CMD" ]; then
-    eval "$SINGULARITY_SETUP_CMD"
-fi
+REPO=$(pwd)
 
 BENCHMARK="lasso-dna"
 AGENT="vanilla_bo"
