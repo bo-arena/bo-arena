@@ -53,7 +53,7 @@ def run_agent(agent_name: str, seed: int) -> np.ndarray:
         seed=seed,
         batch_size=1,
     )
-    return arena.run().y
+    return arena.run().observed_data.y
 
 
 def best_at_pct(

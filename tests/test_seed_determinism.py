@@ -5,9 +5,8 @@ import pytest
 
 from bo_arena.agents.random import Random
 from bo_arena.agents.registry import AGENTS
-from bo_arena.arena import Arena
+from bo_arena.arena import Arena, RunResult
 from bo_arena.benchmarks.synthetic_benchmarks import Hartmann6D
-from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import generate_seed
 
 
@@ -17,7 +16,7 @@ def test_seed_determinism(agent_name: str) -> None:
     benchmark = Hartmann6D(embed_dim=100)
     agent_cls = AGENTS[agent_name]
 
-    def run_arena(seed: int) -> Dataset:
+    def run_arena(seed: int) -> RunResult:
         agent = agent_cls(
             input_dim=benchmark.metadata.input_dim, n_total_evaluations=12
         )
@@ -34,8 +33,8 @@ def test_seed_determinism(agent_name: str) -> None:
     result_1 = run_arena(seed=42)
     result_2 = run_arena(seed=42)
 
-    np.testing.assert_array_equal(result_1.X, result_2.X)
-    np.testing.assert_array_equal(result_1.y, result_2.y)
+    np.testing.assert_array_equal(result_1.observed_data.X, result_2.observed_data.X)
+    np.testing.assert_array_equal(result_1.observed_data.y, result_2.observed_data.y)
 
 
 @pytest.mark.parametrize("agent_name", AGENTS.keys())
@@ -44,7 +43,7 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
     benchmark = Hartmann6D(embed_dim=100)
     agent_cls = AGENTS[agent_name]
 
-    def run_arena(seed: int) -> Dataset:
+    def run_arena(seed: int) -> RunResult:
         agent = agent_cls(
             input_dim=benchmark.metadata.input_dim, n_total_evaluations=12
         )
@@ -61,7 +60,7 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
     result_1 = run_arena(seed=42)
     result_2 = run_arena(seed=123)
 
-    assert not np.array_equal(result_1.X, result_2.X)
+    assert not np.array_equal(result_1.observed_data.X, result_2.observed_data.X)
 
 
 def test_observed_data_is_float32() -> None:
@@ -78,8 +77,8 @@ def test_observed_data_is_float32() -> None:
     )
     result = arena.run()
 
-    assert result.X.dtype == np.float32
-    assert result.y.dtype == np.float32
+    assert result.observed_data.X.dtype == np.float32
+    assert result.observed_data.y.dtype == np.float32
 
 
 def test_seed_spawning_is_deterministic() -> None:

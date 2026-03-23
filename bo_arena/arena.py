@@ -1,6 +1,7 @@
 """Arena for running BO experiments."""
 
 import time
+from dataclasses import dataclass
 from logging import Logger
 
 import numpy as np
@@ -14,6 +15,23 @@ from bo_arena.utils.miscellaneous import (
     generate_seed,
     seed_everything,
 )
+
+
+@dataclass
+class RunResult:
+    """Result of an Arena run.
+
+    Args:
+        observed_data: The dataset of all observed points.
+        ask_times: Wall-clock time (seconds) for each agent.ask() call.
+        tell_times: Wall-clock time (seconds) for each agent.tell() call.
+        eval_times: Wall-clock time (seconds) for each benchmark.evaluate_points() call.
+    """
+
+    observed_data: Dataset
+    ask_times: list[float]
+    tell_times: list[float]
+    eval_times: list[float]
 
 
 class Arena:
@@ -69,7 +87,7 @@ class Arena:
             np.empty(0, dtype=np.float32),
         )
 
-    def run(self) -> Dataset:  # noqa: PLR0915
+    def run(self) -> RunResult:  # noqa: PLR0915
         """Run the main BO loop.
 
         Runs the main Bayesian optimization loop, which consists of:
@@ -82,13 +100,12 @@ class Arena:
         so far. If a WandB run is provided, logs detailed metrics for each evaluation.
 
         Seed derivation uses a tree structure rather than a chain. The master key is
-        split into an init branch and a loop branch; each branch spawns all its
-        children upfront. Since ``SeedSequence.spawn(n+1)[:n]`` produces the same
-        children as ``spawn(n)``, a new method can be added by increasing the spawn
-        count without changing any previously derived seeds.
+        split into an init branch and a loop branch. Since ``SeedSequence.spawn(n+1)[:n]
+        `` produces the same children as ``spawn(n)``, a new method can be added by
+        increasing the spawn count without changing any previously derived seeds.
 
         Returns:
-            The dataset of all observed points and their corresponding observations.
+            A RunResult containing the observed data and per-iteration timing info.
 
         Raises:
             RuntimeError: If the method is called more than once on the same instance.
@@ -163,6 +180,9 @@ class Arena:
         # Run core BO loop. Uses a while loop rather than a fixed iteration count
         # because agents may return fewer points than requested (e.g. during
         # initialization phases).
+        ask_times: list[float] = []
+        tell_times: list[float] = []
+        eval_times: list[float] = []
         batch_idx = 0
         while self.observed_data.n < self.n_total_evaluations:
             remaining = self.n_total_evaluations - self.observed_data.n
@@ -176,11 +196,12 @@ class Arena:
             ask_key, tell_key = iter_key.spawn(2)
 
             # Ask the agent for new points to evaluate.
-            start = time.time()
             seed = generate_seed(ask_key)
             seed_everything(seed)
+            start = time.perf_counter()
             new_points = self.agent.ask(n_ask, seed)
-            ask_time = time.time() - start
+            ask_time = time.perf_counter() - start
+            ask_times.append(ask_time)
             new_points = new_points.astype(np.float32)
             if isinstance(input_space, ContinuousInputSpace):
                 new_points = np.clip(
@@ -190,26 +211,28 @@ class Arena:
                 )
 
             # Evaluate the benchmark at the new points.
-            start = time.time()
+            start = time.perf_counter()
             new_observations = self.benchmark.evaluate_points(new_points).astype(
                 np.float32
             )
-            eval_time = time.time() - start
+            eval_time = time.perf_counter() - start
+            eval_times.append(eval_time)
 
             # Update the observed data with the new points and observations.
             new_points_dataset = Dataset(new_points, new_observations)
             self.observed_data = self.observed_data + new_points_dataset
 
             # Provide the new observations to the agent.
-            start = time.time()
             seed = generate_seed(tell_key)
             seed_everything(seed)
+            start = time.perf_counter()
             self.agent.tell(new_points_dataset, seed)
-            tell_time = time.time() - start
+            tell_time = time.perf_counter() - start
+            tell_times.append(tell_time)
 
             # Log iteration info (note, only logs info about the entire batch, not
             # individual points).
-            actual_batch_size = len(new_points)
+            actual_batch_size = new_points.shape[0]
             if self.logger is not None:
                 new_best_in_batch = np.max(new_observations) > np.max(
                     self.observed_data.y[:-actual_batch_size]
@@ -244,4 +267,9 @@ class Arena:
 
             batch_idx += 1
 
-        return self.observed_data
+        return RunResult(
+            observed_data=self.observed_data,
+            ask_times=ask_times,
+            tell_times=tell_times,
+            eval_times=eval_times,
+        )

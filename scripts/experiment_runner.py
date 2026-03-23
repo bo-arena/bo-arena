@@ -105,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915
     """Run the benchmark."""
     # Ensure working tree is clean for reproducibility
     git_status = subprocess.run(
@@ -163,11 +163,13 @@ def main() -> None:
     experiment_dir = RESULTS_DIR / problem_name / agent_name / acqf_opt_dir
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
-    results_file = experiment_dir / f"seed_{seed}.npz"
+    xs_file = experiment_dir / f"seed_{seed}_xs.npy"
+    ys_file = experiment_dir / f"seed_{seed}_ys.npy"
+    times_file = experiment_dir / f"seed_{seed}_times.npz"
     log_file = experiment_dir / f"seed_{seed}.log"
 
     # Check for existing results/logs to avoid overwriting previous runs
-    if results_file.exists() or log_file.exists():
+    if xs_file.exists() or ys_file.exists() or times_file.exists() or log_file.exists():
         msg = (
             f"Results or log file already exists for seed {seed} in "
             f"{experiment_dir}. Refusing to overwrite."
@@ -250,11 +252,18 @@ def main() -> None:
         logger=logger,
         wandb_run=wandb_run,
     )
-    queried_points = bo_arena.run()
+    result = bo_arena.run()
 
     # Save results
-    np.savez(results_file, X=queried_points.X, y=queried_points.y)
-    logger.info(f"Results saved to {results_file}")
+    np.save(xs_file, result.observed_data.X)
+    np.save(ys_file, result.observed_data.y)
+    np.savez(
+        times_file,
+        ask=np.array(result.ask_times),
+        tell=np.array(result.tell_times),
+        eval=np.array(result.eval_times),
+    )
+    logger.info(f"Results saved to {experiment_dir}")
 
     if wandb_run is not None:
         wandb_run.finish()
