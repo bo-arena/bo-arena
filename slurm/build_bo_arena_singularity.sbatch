@@ -14,5 +14,4 @@ export APPTAINER_TMPDIR=$SCRATCH
 
 # Build the bo-arena Singularity container
 mkdir -p images
-REPO=$(pwd)
-singularity build --bind "$REPO:/workspace/bo-arena" --fakeroot images/bo_arena.sif slurm/bo_arena.def
+singularity build --fakeroot images/bo_arena.sif slurm/bo_arena.def

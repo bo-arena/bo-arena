@@ -34,7 +34,7 @@ singularity exec \
     images/bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena
-        source .venv/bin/activate
+        source /opt/venv/bin/activate
         python scripts/local_runner.py \
             --benchmark $BENCHMARK \
             --agent $AGENT \

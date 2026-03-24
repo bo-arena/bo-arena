@@ -1,10 +1,12 @@
 Bootstrap: docker
 From: python:3.13
 
-%setup
-	mkdir -p ${SINGULARITY_ROOTFS}/workspace/bo-arena
+%files
+	pyproject.toml /opt/bo-arena/pyproject.toml
+	uv.lock /opt/bo-arena/uv.lock
 
 %post
 	pip install --root-user-action=ignore uv
-	cd /workspace/bo-arena
+	cd /opt/bo-arena
 	uv sync --frozen --extra experiments --no-install-project
+	mv .venv /opt/venv
