@@ -55,10 +55,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--batch-size", type=int, default=1, help="Batch size")
     parser.add_argument(
-        "--hostname",
+        "--address",
         type=str,
         default="127.0.0.1",
-        help="Hostname of the Bencher server",
+        help="Address of the Bencher server (hostname or unix:///path/to/socket)",
     )
     parser.add_argument(
         "--port",
@@ -93,7 +93,7 @@ def main() -> None:
 
     # Initialize Benchmark
     benchmark = BencherBenchmark(
-        name=args.benchmark, hostname=args.hostname, port=args.port
+        name=args.benchmark, address=args.address, port=args.port
     )
     metadata = benchmark.metadata
     input_dim = metadata.input_dim

@@ -52,15 +52,16 @@ class BencherBenchmark(Benchmark):
         name: Name of the benchmark.
         metadata: Benchmark metadata. If None, will be looked up in BENCHMARK_METADATA
           using the name.
-        hostname: Hostname of the Bencher server.
-        port: Port of the Bencher server.
+        address: Address of the Bencher server. Can be a hostname (e.g. "127.0.0.1")
+          or a Unix socket path (e.g. "unix:///path/to/bencher.sock").
+        port: Port of the Bencher server. Ignored when address is a Unix socket.
     """
 
     def __init__(
         self,
         name: str,
         metadata: BenchmarkMetadata | None = None,
-        hostname: str = "127.0.0.1",
+        address: str = "127.0.0.1",
         port: int = 50051,
     ) -> None:
         if metadata is None:
@@ -69,7 +70,7 @@ class BencherBenchmark(Benchmark):
                 msg = f"Metadata not found for benchmark '{name}'."
                 raise ValueError(msg)
         super().__init__(name, metadata)
-        self.bencher_client = BencherClient(hostname=hostname, port=port)
+        self.bencher_client = BencherClient(address=address, port=port)
 
     def evaluate_points(
         self, points: Float[np.ndarray, "N D"]

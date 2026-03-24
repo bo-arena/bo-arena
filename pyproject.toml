@@ -11,7 +11,7 @@ dependencies = [
     "wandb>=0.25.1,<0.26",
     "numpy>=2.4,<3",
     "scipy>=1.17,<2",
-    "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold@ac156d44505e2eae1a5f5266feef47325d0b91a2",
+    "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold@e1c714c30c00b8a699ff87390229e604ebc31cec",
     "torch>=2.11,<3",
     "botorch>=0.17.2,<0.18",
     "gpytorch>=1.15,<2",

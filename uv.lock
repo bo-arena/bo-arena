@@ -57,8 +57,8 @@ wheels = [
 
 [[package]]
 name = "bencherscaffold"
-version = "0.4.6"
-source = { git = "https://github.com/LeoIV/BencherScaffold?rev=ac156d44505e2eae1a5f5266feef47325d0b91a2#ac156d44505e2eae1a5f5266feef47325d0b91a2" }
+version = "0.5.2"
+source = { git = "https://github.com/LeoIV/BencherScaffold?rev=e1c714c30c00b8a699ff87390229e604ebc31cec#e1c714c30c00b8a699ff87390229e604ebc31cec" }
 dependencies = [
     { name = "grpcio", version = "1.70.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
     { name = "grpcio", version = "1.76.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
@@ -103,7 +103,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "beartype", marker = "extra == 'test'", specifier = ">=0.22.9,<0.23" },
-    { name = "bencherscaffold", git = "https://github.com/LeoIV/BencherScaffold?rev=ac156d44505e2eae1a5f5266feef47325d0b91a2" },
+    { name = "bencherscaffold", git = "https://github.com/LeoIV/BencherScaffold?rev=e1c714c30c00b8a699ff87390229e604ebc31cec" },
     { name = "botorch", specifier = ">=0.17.2,<0.18" },
     { name = "gpytorch", specifier = ">=1.15,<2" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.2,<8" },
