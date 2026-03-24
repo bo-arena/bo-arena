@@ -89,6 +89,7 @@ def main() -> None:
     args = parse_args()
 
     logger.info(f"Starting run with Benchmark: {args.benchmark}, Agent: {args.agent}")
+    logger.info(f"Num threads: {torch.get_num_threads()}")
 
     # Initialize Benchmark
     benchmark = BencherBenchmark(

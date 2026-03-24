@@ -226,6 +226,7 @@ def main() -> None:  # noqa: PLR0915
     )
     wandb_group = f"{problem_name}/{agent_name}/{acqf_opt_dir}"
     logger.info(f"Experiment: {wandb_group}, seed={seed}")
+    logger.info(f"Num threads: {torch.get_num_threads()} ")
     logger.info(f"Config: {config}")
 
     # Initialize WandB in offline mode to avoid API throttling with many
