@@ -7,21 +7,26 @@ description = "Arena for simple, reliable, and efficient benchmarking of BO algo
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jaxtyping",
-    "wandb",
-    "numpy",
-    "scipy",
+    "jaxtyping>=0.3.9,<0.4",
+    "wandb>=0.25.1,<0.26",
+    "numpy>=2.4,<3",
+    "scipy>=1.17,<2",
     "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold@ac156d44505e2eae1a5f5266feef47325d0b91a2",
-    "torch",
-    "botorch",
-    "gpytorch",
+    "torch>=2.11,<3",
+    "botorch>=0.17.2,<0.18",
+    "gpytorch>=1.15,<2",
 ]
 
 [project.optional-dependencies]
-test = ["beartype", "pytest"]
-dev = ["ruff", "pre-commit", "jupytext", "ipykernel"]
-experiments = ["py-cpuinfo"]
-plotting = ["matplotlib", "tueplots"]
+test = ["beartype>=0.22.9,<0.23", "pytest>=9,<10"]
+dev = [
+    "ruff>=0.15.7,<0.16",
+    "pre-commit>=4.5,<5",
+    "jupytext>=1.19,<2",
+    "ipykernel>=7.2,<8",
+]
+experiments = ["py-cpuinfo>=9,<10"]
+plotting = ["matplotlib>=3.10,<4", "tueplots>=0.2.4,<0.3"]
 
 # PEP 518 Build System Configuration
 # See https://peps.python.org/pep-0518/
