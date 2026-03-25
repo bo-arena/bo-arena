@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import itertools
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -68,6 +69,17 @@ def parse_config_sh() -> dict[str, str]:
         if "=" in line:
             key, _, value = line.partition("=")
             config[key.strip()] = value.strip().strip('"').strip("'")
+
+    required_keys = ["REPO", "LOGS", "CPU_PARTITION", "GPU_PARTITION"]
+    missing = [k for k in required_keys if not config.get(k)]
+    if missing:
+        print(
+            f"Error: config.sh is missing keys: {', '.join(missing)}.\n"
+            "See slurm/config.sh.example for the expected format.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     return config
 
 
@@ -151,6 +163,12 @@ def main() -> None:
         help="Print sbatch commands without submitting",
     )
     args = parser.parse_args()
+
+    if not re.fullmatch(r"\d+(-\d+)?(%\d+)?(,\d+(-\d+)?(%\d+)?)*", args.seed_range):
+        parser.error(
+            f"Invalid --seed-range format: '{args.seed_range}'. "
+            "Expected a SLURM array spec like '0-9', '0,2,4', or '0-9%3'."
+        )
 
     config = parse_config_sh()
     Path(config["LOGS"]).mkdir(parents=True, exist_ok=True)
