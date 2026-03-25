@@ -196,6 +196,8 @@ def main() -> None:  # noqa: PLR0915
         "botorch_version": botorch.__version__,
         "gpytorch_version": gpytorch.__version__,
         "cpu": cpuinfo.get_cpu_info()["brand_raw"],
+        "omp_num_threads": int(os.environ.get("OMP_NUM_THREADS", "1")),
+        "torch_num_threads": torch.get_num_threads(),
         "device": args.device,
         "dtype": args.dtype,
     }
