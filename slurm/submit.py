@@ -39,11 +39,13 @@ RESOURCE_PROFILES = {
     "saasbo": {
         "device": "cuda",
         "gres": "gpu:1",
+        "cpus": 8,
         "mem": "32G",
         "time": "72:00:00",
     },
     "default": {
         "device": "cpu",
+        "cpus": 4,
         "mem": "16G",
         "time": "36:00:00",
     }
@@ -112,6 +114,8 @@ def build_sbatch_cmd(
         "sbatch",
         f"--chdir={config['REPO']}",
         f"--partition={partition}",
+        f"--ntasks-per-node=1",
+        f"--cpus-per-task={profile['cpus']}",
         f"--mem={profile['mem']}",
         f"--time={profile['time']}",
         f"--array={seed_range}",

@@ -14,6 +14,8 @@
 
 source "$(pwd)/slurm/preamble.sh"
 
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+
 if [ -z "$BENCHMARK" ] || [ -z "$AGENT" ] || [ -z "$ACQF_OPT_STRATEGY" ] || [ -z "$DEVICE" ]; then
     echo "Error: BENCHMARK, AGENT, ACQF_OPT_STRATEGY, and DEVICE must be set."
     echo "Use submit.py to launch experiments."
