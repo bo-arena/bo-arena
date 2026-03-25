@@ -41,16 +41,16 @@ singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --env TMPDIR=/tmp \
     --env WANDB_API_KEY=$WANDB_API_KEY \
+    --env PYTHONPATH=/workspace/bo-arena \
     images/bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena
-        source /opt/venv/bin/activate
-        python scripts/experiment_runner.py \
+        /opt/venv/bin/python scripts/experiment_runner.py \
             --benchmark $BENCHMARK \
             --agent $AGENT \
             --acqf-opt-strategy $ACQF_OPT_STRATEGY \
             --seed-idx $SLURM_ARRAY_TASK_ID \
-            --hostname 127.0.0.1 \
+            --address 127.0.0.1 \
             --port 50051 \
             --device cpu \
             --dtype float64

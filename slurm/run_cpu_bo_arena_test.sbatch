@@ -29,15 +29,15 @@ singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --env TMPDIR=/tmp \
     --env WANDB_API_KEY=$WANDB_API_KEY \
+    --env PYTHONPATH=/workspace/bo-arena \
     images/bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena
-        source /opt/venv/bin/activate
-        python scripts/local_runner.py \
+        /opt/venv/bin/python scripts/local_runner.py \
             --benchmark $BENCHMARK \
             --agent $AGENT \
             --seed $SEED \
-            --hostname 127.0.0.1 \
+            --address 127.0.0.1 \
             --port 50051 \
             --device cpu \
             --dtype float64

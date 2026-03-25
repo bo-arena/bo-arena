@@ -8,5 +8,4 @@ From: python:3.13
 %post
 	pip install --root-user-action=ignore uv
 	cd /opt/bo-arena
-	uv sync --frozen --extra experiments --no-install-project
-	mv .venv /opt/venv
+	UV_PROJECT_ENVIRONMENT=/opt/venv uv sync --frozen --extra experiments --no-install-project

@@ -19,6 +19,5 @@ singularity exec \
     images/bo_arena.sif \
     bash -c "
         cd /workspace/bo-arena
-        source /opt/venv/bin/activate
-        python -m wandb sync --sync-all wandb/
+        /opt/venv/bin/python -m wandb sync --sync-all wandb/
     "
