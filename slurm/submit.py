@@ -46,10 +46,43 @@ RESOURCE_PROFILES = {
     "default": {
         "device": "cpu",
         "cpus": 4,
-        "mem": "16G",
+        "mem": "4G",
         "time": "36:00:00",
     }
 }
+
+# ---------------------------------------------------------------------------
+# Minimum memory per benchmark. The final allocation is
+# max(agent profile mem, benchmark mem).
+# Benchmarks not listed here use 0 (i.e., agent profile decides).
+# ---------------------------------------------------------------------------
+BENCHMARK_MEM = {
+    "rover": "4G",
+    "mopta08": "4G",
+    "lasso-dna": "4G",
+    "svm": "6G",
+    "mujoco-ant": "12G",
+    "mujoco-humanoid": "16G",
+}
+
+
+def _parse_mem(mem_str: str) -> int:
+    """Parse a memory string like '16G' or '512M' to megabytes."""
+    mem_str = mem_str.strip().upper()
+    if mem_str.endswith("G"):
+        return int(mem_str[:-1]) * 1024
+    if mem_str.endswith("M"):
+        return int(mem_str[:-1])
+    if mem_str.endswith("T"):
+        return int(mem_str[:-1]) * 1024 * 1024
+    return int(mem_str)
+
+
+def _format_mem(mb: int) -> str:
+    """Format megabytes back to a human-readable string."""
+    if mb >= 1024 and mb % 1024 == 0:
+        return f"{mb // 1024}G"
+    return f"{mb}M"
 
 
 def parse_config_sh() -> dict[str, str]:
@@ -90,6 +123,14 @@ def get_profile(agent: str) -> dict:
     return RESOURCE_PROFILES.get(agent, RESOURCE_PROFILES["default"])
 
 
+def resolve_mem(agent: str, benchmark: str) -> str:
+    """Return the memory allocation as max(agent profile, benchmark minimum)."""
+    profile = get_profile(agent)
+    agent_mem = _parse_mem(profile["mem"])
+    bench_mem = _parse_mem(BENCHMARK_MEM.get(benchmark, "0"))
+    return _format_mem(max(agent_mem, bench_mem))
+
+
 def build_sbatch_cmd(
     benchmark: str,
     agent: str,
@@ -99,6 +140,7 @@ def build_sbatch_cmd(
 ) -> list[str]:
     """Build the sbatch command for a single experiment combination."""
     profile = get_profile(agent)
+    mem = resolve_mem(agent, benchmark)
     partition_key = "GPU_PARTITION" if profile["device"] == "cuda" else "CPU_PARTITION"
     partition = config[partition_key]
 
@@ -116,7 +158,7 @@ def build_sbatch_cmd(
         f"--partition={partition}",
         f"--ntasks-per-node=1",
         f"--cpus-per-task={profile['cpus']}",
-        f"--mem={profile['mem']}",
+        f"--mem={mem}",
         f"--time={profile['time']}",
         f"--array={seed_range}",
         f"--export={export_vars}",
@@ -192,8 +234,8 @@ def main() -> None:
     for benchmark, agent, strategy in grid:
         cmd = build_sbatch_cmd(benchmark, agent, strategy, args.seed_range, config)
         profile = get_profile(agent)
-        dev, mem = profile["device"], profile["mem"]
-        label = f"  {benchmark} / {agent} / {strategy}  [{dev}, {mem}]"
+        mem = resolve_mem(agent, benchmark)
+        label = f"  {benchmark} / {agent} / {strategy}  [{profile['device']}, {mem}]"
 
         if args.dry_run:
             print(label)
