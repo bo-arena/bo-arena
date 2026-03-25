@@ -75,7 +75,16 @@ def _parse_mem(mem_str: str) -> int:
         return int(mem_str[:-1])
     if mem_str.endswith("T"):
         return int(mem_str[:-1]) * 1024 * 1024
-    return int(mem_str)
+    try:
+        return int(mem_str)
+    except ValueError:
+        msg = (
+            f"Unrecognized memory string '{mem_str}'. "
+            "Use a suffix of 'M', 'G', or 'T' (e.g. '16G', '512M')."
+        )
+        raise ValueError(
+            msg
+        ) from None
 
 
 def _format_mem(mb: int) -> str:
@@ -156,7 +165,7 @@ def build_sbatch_cmd(
         "sbatch",
         f"--chdir={config['REPO']}",
         f"--partition={partition}",
-        f"--ntasks-per-node=1",
+        "--ntasks-per-node=1",
         f"--cpus-per-task={profile['cpus']}",
         f"--mem={mem}",
         f"--time={profile['time']}",

@@ -47,7 +47,8 @@ echo "Running: benchmark=$BENCHMARK, agent=$AGENT, acqf_opt_strategy=$ACQF_OPT_S
 singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     $NV_FLAG \
-    --env TMPDIR=/tmp \
+    --env TMPDIR=${TMPDIR:-/tmp} \
+    --env OMP_NUM_THREADS=$OMP_NUM_THREADS \
     --env WANDB_API_KEY=$WANDB_API_KEY \
     --env PYTHONPATH=/workspace/bo-arena \
     images/bo_arena.sif \
