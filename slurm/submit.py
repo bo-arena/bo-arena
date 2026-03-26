@@ -57,9 +57,9 @@ RESOURCE_PROFILES = {
 # Benchmarks not listed here use 0 (i.e., agent profile decides).
 # ---------------------------------------------------------------------------
 BENCHMARK_MEM = {
-    "rover": "4G",
-    "mopta08": "4G",
-    "lasso-dna": "4G",
+    "rover": "6G",
+    "mopta08": "6G",
+    "lasso-dna": "6G",
     "svm": "6G",
     "mujoco-ant": "12G",
     "mujoco-humanoid": "16G",
