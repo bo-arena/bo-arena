@@ -47,8 +47,8 @@ RESOURCE_PROFILES = {
         "device": "cpu",
         "cpus": 4,
         "mem": "4G",
-        "time": "36:00:00",
-    }
+        "time": "48:00:00",
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -166,7 +166,8 @@ def build_sbatch_cmd(
         f"--time={profile['time']}",
         f"--array={seed_range}",
         f"--export={export_vars}",
-        "-o", f"{config['LOGS']}/%j_%x_%a.out",
+        "-o",
+        f"{config['LOGS']}/%j_%x_%a.out",
     ]
 
     if "gres" in profile:
@@ -229,8 +230,10 @@ def main() -> None:
 
     grid = list(itertools.product(benchmarks, agents, strategies))
 
-    print(f"{'[DRY RUN] ' if args.dry_run else ''}Submitting {len(grid)} job array(s) "
-          f"(seeds {args.seed_range} each):\n")
+    print(
+        f"{'[DRY RUN] ' if args.dry_run else ''}Submitting {len(grid)} job array(s) "
+        f"(seeds {args.seed_range} each):\n"
+    )
 
     submitted = 0
     failed = 0
