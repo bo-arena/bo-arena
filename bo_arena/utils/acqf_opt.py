@@ -17,6 +17,9 @@ def get_opt_kwargs(strategy: str) -> dict:
         "no_raasp": {
             "raw_samples": 5000,
             "num_restarts": 5,
+            "options": {
+                "batch_limit": 64,
+            },
         },
         "raasp": {
             # sample_around_best=True doubles effective raw_samples:
