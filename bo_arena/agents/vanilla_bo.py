@@ -2,10 +2,15 @@
 
 import numpy as np
 import torch
-from botorch.acquisition import LogExpectedImprovement, qLogExpectedImprovement
+from botorch.acquisition import (
+    ExpectedImprovement,
+    LogExpectedImprovement,
+    qLogExpectedImprovement,
+)
 from botorch.fit import fit_gpytorch_mll
 from botorch.generation import gen_candidates_scipy
 from botorch.models import SingleTaskGP
+from botorch.models.transforms import Normalize, Standardize
 from botorch.optim import optimize_acqf
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from jaxtyping import Float
@@ -165,6 +170,158 @@ class VanillaBO(AskTellAgent):
             acq_func,
             bounds=self.bounds,
             q=n,
+            gen_candidates=gen_candidates_scipy,
+            **self.opt_kwargs,
+        )
+
+        return candidates.detach().cpu().numpy()
+
+
+class VanillaBOYu2026(AskTellAgent):
+    """Hvarfner's "Vanilla BO", as implemented by Yu et al. (2026).
+
+    This agent implements the "Vanilla BO" baseline as implemented by Yu et al. (2026)
+    in their GIT-BO paper, which can be found in their Github repository:
+    https://github.com/rosenyu304/GITBO. Note: This implementation is not identical to
+    that of the original paper by Hvarfner et al. (2024), which is implemented above in
+    the `VanillaBO` agent.
+
+    Reference:
+        Yu, R. T. Y., Picard, C., & Ahmed, F. (2026). GIT-BO: High-dimensional Bayesian
+        optimization using tabular foundation models. International Conference on
+        Learning Representations (ICLR) 2026.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        acqf_opt_strategy: str = "default",
+        dtype: torch.dtype = torch.float64,
+        device: torch.device | str = "cpu",
+        **kwargs: object,  # noqa: ARG002
+    ) -> None:
+        """Initialize the VanillaBOYu2026 agent.
+
+        Args:
+            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
+              "default", "no_raasp", or "raasp". Setting "default" uses the same
+              settings as in the original paper.
+            dtype: The torch dtype to use for the model and data.
+            device: The torch device to use for the model and data.
+            kwargs: Additional arguments.
+
+        Raises:
+            ValueError: If an unknown acqf_opt_strategy is given.
+        """
+        self.dtype = dtype
+        self.device = device
+        self.input_dim = input_dim
+        if acqf_opt_strategy == "default":
+            self.opt_kwargs = {
+                "raw_samples": 3,
+                "num_restarts": 1,
+            }
+        elif acqf_opt_strategy in {"no_raasp", "raasp"}:
+            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
+        else:
+            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
+            raise ValueError(msg)
+
+        self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
+        self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
+        self.model = None
+
+        # Bounds are always [0,1]^d since Bencher normalizes inputs
+        self.bounds = torch.stack([
+            torch.zeros(self.input_dim, dtype=self.dtype, device=self.device),
+            torch.ones(self.input_dim, dtype=self.dtype, device=self.device),
+        ])
+
+    def __str__(self) -> str:
+        """Return a string representation of the agent."""
+        return "vanilla_bo_yu_2026"
+
+    def _fit_model(self) -> None:
+        """Fit a SingleTaskGP model (with DSP) using ExactMarginalLogLikelihood."""
+        normed_y = self.train_y / (torch.max(self.train_y) - torch.min(self.train_y))
+        self.model = SingleTaskGP(
+            self.train_X.double(),
+            normed_y.double(),
+            input_transform=Normalize(d=self.train_X.shape[1]),
+            outcome_transform=Standardize(m=1),
+            likelihood=None,
+        )
+        mll = ExactMarginalLogLikelihood(
+            model=self.model, likelihood=self.model.likelihood
+        )
+        fit_gpytorch_mll(mll)
+
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Provide initial observations to the agent and fit the SingleTaskGP model.
+
+        Args:
+            data: Initial observations to provide to the agent.
+            seed: Random seed for reproducibility.
+        """
+        self.train_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        self.train_y = torch.tensor(
+            data.y, dtype=self.dtype, device=self.device
+        ).unsqueeze(-1)
+        self._fit_model()
+
+    def tell(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Update the agent with new observations and refit the SingleTaskGP model.
+
+        Args:
+            data: Observations corresponding to the points requested in the previous
+                `ask` call.
+            seed: Random seed for reproducibility.
+        """
+        new_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        new_y = torch.tensor(data.y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+
+        self.train_X = torch.cat([self.train_X, new_X])
+        self.train_y = torch.cat([self.train_y, new_y])
+        self._fit_model()
+
+    def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # noqa: ARG002
+        """Select the next points to evaluate using Expected Improvement (EI).
+
+        This method optimizes the EI acquisition function.
+
+        Args:
+            n: Number of points to select (used for batch BO, which is not supported by
+                this agent and will raise an error).
+            seed: Random seed for reproducibility.
+
+        Returns:
+            Points selected by the agent for evaluation.
+
+        Raises:
+            RuntimeError: If the model has not been initialized with
+                `tell_initial_data`.
+            ValueError: If `n > 1`, since batch BO is not supported by this agent.
+        """
+        if self.model is None:
+            msg = "Model has not been initialized. Call tell_initial_data first."
+            raise RuntimeError(msg)
+
+        best_f = self.train_y.max()
+
+        if n == 1:
+            acq_func = ExpectedImprovement(
+                model=self.model,
+                best_f=best_f,
+            )
+        else:
+            msg = "Batch BO is not supported by this agent."
+            raise ValueError(msg)
+
+        candidates, _ = optimize_acqf(
+            acq_function=acq_func,
+            bounds=self.bounds,
+            q=1,
             gen_candidates=gen_candidates_scipy,
             **self.opt_kwargs,
         )
