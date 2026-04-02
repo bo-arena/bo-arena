@@ -205,7 +205,7 @@ class VanillaBOYu2026(AskTellAgent):
         Args:
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
             acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
-              "default", "no_raasp", or "raasp". Setting "default" uses the same
+              "default", "no_raasp", or "botorch_raasp". Setting "default" uses the same
               settings as in the original paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
@@ -222,7 +222,7 @@ class VanillaBOYu2026(AskTellAgent):
                 "raw_samples": 3,
                 "num_restarts": 1,
             }
-        elif acqf_opt_strategy in {"no_raasp", "raasp"}:
+        elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
             self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
         else:
             msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
