@@ -47,7 +47,7 @@ RESOURCE_PROFILES = {
         "device": "cpu",
         "cpus": 4,
         "mem": "4G",
-        "time": "48:00:00",
+        "time": "72:00:00",
     },
 }
 
