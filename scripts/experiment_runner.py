@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
         "--acqf-opt-strategy",
         type=str,
         default="default",
-        choices=["default", "no_raasp", "raasp"],
+        choices=["default", "no_raasp", "raasp", "botorch_raasp"],
     )
     parser.add_argument(
         "--seed-idx",
