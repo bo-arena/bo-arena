@@ -166,17 +166,24 @@ def main() -> None:  # noqa: PLR0915
     xs_file = experiment_dir / f"seed_{seed}_xs.npy"
     ys_file = experiment_dir / f"seed_{seed}_ys.npy"
     times_file = experiment_dir / f"seed_{seed}_times.npz"
+    config_file = experiment_dir / f"seed_{seed}_config.json"
     log_file = experiment_dir / f"seed_{seed}.log"
 
     # Check for existing results/logs to avoid overwriting previous runs
-    if xs_file.exists() or ys_file.exists() or times_file.exists() or log_file.exists():
+    if (
+        xs_file.exists()
+        or ys_file.exists()
+        or times_file.exists()
+        or config_file.exists()
+        or log_file.exists()
+    ):
         msg = (
             f"Results or log file already exists for seed {seed} in "
             f"{experiment_dir}. Refusing to overwrite."
         )
         raise FileExistsError(msg)
 
-    # Build config and write to experiment directory (shared across seeds)
+    # Build per-seed config capturing experiment parameters and environment
     git_hash = subprocess.run(
         ["git", "rev-parse", "HEAD"],  # noqa: S607
         capture_output=True,
@@ -201,21 +208,8 @@ def main() -> None:  # noqa: PLR0915
         "device": args.device,
         "dtype": args.dtype,
     }
-
-    config_file = experiment_dir / "config.json"
-    try:
-        with config_file.open("x", encoding="utf-8") as f:
-            f.write(json.dumps(config, indent=2) + "\n")
-    except FileExistsError:
-        existing_config = json.loads(config_file.read_text())
-        if existing_config != config:
-            msg = (
-                f"Existing config.json in {experiment_dir} does not match current "
-                f"config. This likely means experiment parameters have changed.\n"
-                f"Existing: {existing_config}\n"
-                f"Current: {config}"
-            )
-            raise RuntimeError(msg) from None
+    with config_file.open("x", encoding="utf-8") as f:
+        f.write(json.dumps(config, indent=2) + "\n")
 
     # Set up logging
     logging.basicConfig(
@@ -242,11 +236,12 @@ def main() -> None:  # noqa: PLR0915
         os.environ["WANDB_MODE"] = "offline"
         wandb_run = wandb.init(
             entity="bo-arena",
-            project="bo-arena",
+            project="bo-arena-v2",
             name=f"seed_{seed}",
             group=wandb_group,
             config={**config, "seed": seed},
         )
+        logger.info(f"WandB run ID: {wandb_run.id}")
 
     # Run Arena
     bo_arena = Arena(

@@ -47,7 +47,7 @@ RESOURCE_PROFILES = {
         "device": "cpu",
         "cpus": 4,
         "mem": "4G",
-        "time": "72:00:00",
+        "time": "48:00:00",
     },
 }
 
@@ -64,6 +64,34 @@ BENCHMARK_MEM = {
     "mujoco-ant": "12G",
     "mujoco-humanoid": "16G",
 }
+
+# ---------------------------------------------------------------------------
+# Minimum time per benchmark. The final allocation is
+# max(agent profile time, benchmark time).
+# Benchmarks not listed here use "00:00:00" (i.e., agent profile decides).
+# ---------------------------------------------------------------------------
+BENCHMARK_TIME = {
+    "mujoco-ant": "72:00:00",
+    "mujoco-humanoid": "72:00:00",
+}
+
+
+def _parse_time(time_str: str) -> int:
+    """Parse a SLURM time string like '48:00:00' to total seconds."""
+    parts = time_str.strip().split(":")
+    if len(parts) == 3:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    if len(parts) == 2:
+        return int(parts[0]) * 60 + int(parts[1])
+    msg = f"Unrecognized time string '{time_str}'. Use HH:MM:SS or MM:SS format."
+    raise ValueError(msg)
+
+
+def _format_time(seconds: int) -> str:
+    """Format seconds back to HH:MM:SS."""
+    h, remainder = divmod(seconds, 3600)
+    m, s = divmod(remainder, 60)
+    return f"{h:02d}:{m:02d}:{s:02d}"
 
 
 def _parse_mem(mem_str: str) -> int:
@@ -135,6 +163,14 @@ def resolve_mem(agent: str, benchmark: str) -> str:
     return _format_mem(max(agent_mem, bench_mem))
 
 
+def resolve_time(agent: str, benchmark: str) -> str:
+    """Return the time limit as max(agent profile, benchmark minimum)."""
+    profile = get_profile(agent)
+    agent_time = _parse_time(profile["time"])
+    bench_time = _parse_time(BENCHMARK_TIME.get(benchmark, "00:00:00"))
+    return _format_time(max(agent_time, bench_time))
+
+
 def build_sbatch_cmd(
     benchmark: str,
     agent: str,
@@ -145,6 +181,7 @@ def build_sbatch_cmd(
     """Build the sbatch command for a single experiment combination."""
     profile = get_profile(agent)
     mem = resolve_mem(agent, benchmark)
+    time = resolve_time(agent, benchmark)
     partition_key = "GPU_PARTITION" if profile["device"] == "cuda" else "CPU_PARTITION"
     partition = config[partition_key]
 
@@ -163,7 +200,7 @@ def build_sbatch_cmd(
         "--ntasks-per-node=1",
         f"--cpus-per-task={profile['cpus']}",
         f"--mem={mem}",
-        f"--time={profile['time']}",
+        f"--time={time}",
         f"--array={seed_range}",
         f"--export={export_vars}",
         "-o",
@@ -242,7 +279,11 @@ def main() -> None:
         cmd = build_sbatch_cmd(benchmark, agent, strategy, args.seed_range, config)
         profile = get_profile(agent)
         mem = resolve_mem(agent, benchmark)
-        label = f"  {benchmark} / {agent} / {strategy}  [{profile['device']}, {mem}]"
+        time = resolve_time(agent, benchmark)
+        label = (
+            f"  {benchmark} / {agent} / {strategy}"
+            f"  [{profile['device']}, {mem}, {time}]"
+        )
 
         if args.dry_run:
             print(label)
