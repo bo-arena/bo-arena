@@ -5,7 +5,7 @@ def get_opt_kwargs(strategy: str) -> dict:
     """Return optimize_acqf keyword arguments for the given strategy name.
 
     Args:
-        strategy: One of "no_raasp", or "raasp".
+        strategy: One of "no_raasp", or "botorch_raasp".
 
     Returns:
         A dict of kwargs to pass to optimize_acqf.
@@ -21,7 +21,7 @@ def get_opt_kwargs(strategy: str) -> dict:
                 "batch_limit": 64,
             },
         },
-        "raasp": {
+        "botorch_raasp": {
             # sample_around_best=True doubles effective raw_samples:
             # 2500 -> 5000, matching "no_raasp" above.
             "raw_samples": 2500,
