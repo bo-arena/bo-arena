@@ -219,6 +219,9 @@ tests/regression_reports/
 results/
 logs/
 wandb/
+results_old/
+logs_old/
+wandb_old/
 
 # Other
 slurm/bencher_host.txt
