@@ -76,6 +76,26 @@ BENCHMARK_TIME = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Per-(benchmark, agent) overrides. These are merged on top of the resolved
+# profile, so you can selectively override any field (device, gres, mem, …).
+# ---------------------------------------------------------------------------
+COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
+    ("mujoco-humanoid", "turbo"): {
+        "device": "cuda",
+        "gres": "gpu:1",
+        "cpus": 4,
+        "time": "48:00:00",
+    },
+    ("mujoco-humanoid", "turbo_dsp"): {
+        "device": "cuda",
+        "gres": "gpu:1",
+        "cpus": 4,
+        "time": "48:00:00",
+    },
+}
+
+
 def _parse_time(time_str: str) -> int:
     """Parse a SLURM time string like '48:00:00' to total seconds."""
     parts = time_str.strip().split(":")
@@ -150,23 +170,40 @@ def parse_config_sh() -> dict[str, str]:
     return config
 
 
-def get_profile(agent: str) -> dict:
-    """Return the resource profile for the given agent, or the default."""
-    return RESOURCE_PROFILES.get(agent, RESOURCE_PROFILES["default"])
+def get_profile(agent: str, benchmark: str) -> dict:
+    """Return the resource profile for the given agent, with combo overrides."""
+    profile = {**RESOURCE_PROFILES.get(agent, RESOURCE_PROFILES["default"])}
+    if (benchmark, agent) in COMBO_OVERRIDES:
+        profile.update(COMBO_OVERRIDES[benchmark, agent])
+    return profile
 
 
 def resolve_mem(agent: str, benchmark: str) -> str:
-    """Return the memory allocation as max(agent profile, benchmark minimum)."""
-    profile = get_profile(agent)
+    """Return the memory allocation as max(agent profile, benchmark minimum).
+
+    If "mem" is explicitly set in COMBO_OVERRIDES, that value is used
+    directly (benchmark floor is skipped).
+    """
+    profile = get_profile(agent, benchmark)
     agent_mem = _parse_mem(profile["mem"])
+    override = COMBO_OVERRIDES.get((benchmark, agent), {})
+    if "mem" in override:
+        return _format_mem(agent_mem)
     bench_mem = _parse_mem(BENCHMARK_MEM.get(benchmark, "0"))
     return _format_mem(max(agent_mem, bench_mem))
 
 
 def resolve_time(agent: str, benchmark: str) -> str:
-    """Return the time limit as max(agent profile, benchmark minimum)."""
-    profile = get_profile(agent)
+    """Return the time limit as max(agent profile, benchmark minimum).
+
+    If "time" is explicitly set in COMBO_OVERRIDES, that value is used
+    directly (benchmark floor is skipped).
+    """
+    profile = get_profile(agent, benchmark)
     agent_time = _parse_time(profile["time"])
+    override = COMBO_OVERRIDES.get((benchmark, agent), {})
+    if "time" in override:
+        return _format_time(agent_time)
     bench_time = _parse_time(BENCHMARK_TIME.get(benchmark, "00:00:00"))
     return _format_time(max(agent_time, bench_time))
 
@@ -179,7 +216,7 @@ def build_sbatch_cmd(
     config: dict[str, str],
 ) -> list[str]:
     """Build the sbatch command for a single experiment combination."""
-    profile = get_profile(agent)
+    profile = get_profile(agent, benchmark)
     mem = resolve_mem(agent, benchmark)
     time = resolve_time(agent, benchmark)
     partition_key = "GPU_PARTITION" if profile["device"] == "cuda" else "CPU_PARTITION"
@@ -277,7 +314,7 @@ def main() -> None:
 
     for benchmark, agent, strategy in grid:
         cmd = build_sbatch_cmd(benchmark, agent, strategy, args.seed_range, config)
-        profile = get_profile(agent)
+        profile = get_profile(agent, benchmark)
         mem = resolve_mem(agent, benchmark)
         time = resolve_time(agent, benchmark)
         label = (
