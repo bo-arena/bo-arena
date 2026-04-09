@@ -42,6 +42,7 @@ RESOURCE_PROFILES = {
         "cpus": 8,
         "mem": "32G",
         "time": "72:00:00",
+        "n_evals": 500,
     },
     "default": {
         "device": "cpu",
@@ -222,13 +223,16 @@ def build_sbatch_cmd(
     partition_key = "GPU_PARTITION" if profile["device"] == "cuda" else "CPU_PARTITION"
     partition = config[partition_key]
 
-    export_vars = ",".join([
+    export_parts = [
         "ALL",
         f"BENCHMARK={benchmark}",
         f"AGENT={agent}",
         f"ACQF_OPT_STRATEGY={acqf_opt_strategy}",
         f"DEVICE={profile['device']}",
-    ])
+    ]
+    if "n_evals" in profile:
+        export_parts.append(f"N_EVALS={profile['n_evals']}")
+    export_vars = ",".join(export_parts)
 
     cmd = [
         "sbatch",
