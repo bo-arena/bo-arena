@@ -11,6 +11,9 @@
 #   AGENT              - agent name (e.g., "vanilla_bo")
 #   ACQF_OPT_STRATEGY  - acquisition function optimization strategy (e.g., "default")
 #   DEVICE             - "cpu" or "cuda"
+#
+# Optional environment variables:
+#   N_EVALS            - total number of evaluations (overrides benchmark default)
 
 source "$(pwd)/slurm/preamble.sh"
 
@@ -62,5 +65,6 @@ singularity exec \
             --address 127.0.0.1 \
             --port 50051 \
             --device $DEVICE \
-            --dtype float64
+            --dtype float64 \
+            ${N_EVALS:+--n-evals $N_EVALS}
     "
