@@ -530,7 +530,9 @@ class TuRBOLogEI(TuRBO):
         # Score all candidates and keep the top `self.n_restarts` as initial
         # points for the gradient-based optimizer.
         with torch.no_grad():
-            acq_vals = acq_func(X_cand.unsqueeze(1))
+            acq_vals = torch.cat([
+                acq_func(batch.unsqueeze(1)) for batch in X_cand.split(64)
+            ])
         top_idx = acq_vals.topk(self.n_restarts).indices
         X_init = X_cand[top_idx].unsqueeze(1)
 
