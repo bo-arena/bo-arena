@@ -63,6 +63,9 @@ class SAASBO(AskTellAgent):
             self.opt_kwargs = {
                 "raw_samples": 5000,
                 "num_restarts": 3,
+                "options": {
+                    "batch_limit": 64,
+                },
             }
         elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
             self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
