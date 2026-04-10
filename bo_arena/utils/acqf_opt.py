@@ -5,6 +5,8 @@ import torch
 from jaxtyping import Float
 from torch.quasirandom import SobolEngine
 
+from bo_arena.utils.miscellaneous import generate_seed
+
 
 def get_opt_kwargs(strategy: str) -> dict:
     """Return optimize_acqf keyword arguments for the given strategy name.
@@ -99,8 +101,8 @@ def get_candidates(
         raise ValueError(msg)
 
     sobol_ss, mask_ss = np.random.SeedSequence(seed).spawn(2)
-    sobol_seed = int(sobol_ss.generate_state(1)[0])
-    mask_seed = int(mask_ss.generate_state(1)[0])
+    sobol_seed = generate_seed(sobol_ss)
+    mask_seed = generate_seed(mask_ss)
 
     input_dim = lb.shape[0]
     sobol = SobolEngine(input_dim, scramble=True, seed=sobol_seed)

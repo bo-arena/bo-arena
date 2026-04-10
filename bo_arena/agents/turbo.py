@@ -386,7 +386,7 @@ class TuRBO(AskTellAgent):
         return candidates.detach().cpu().numpy()
 
 
-class TuRBOLogEI(AskTellAgent):
+class TuRBOLogEI(TuRBO):
     """Trust Region Bayesian Optimization (TuRBO-1) agent with log EI acq fn.
 
     This agent is a variant of TuRBO-1 as described in "Scalable Global Optimization via
@@ -411,7 +411,7 @@ class TuRBOLogEI(AskTellAgent):
         use_dsp: bool = False,  # noqa: FBT002
         n_candidates: int = 5000,
         n_restarts: int = 5,
-        **kwargs: object,  # noqa: ARG002
+        **kwargs: object,
     ) -> None:
         """Initialize the TuRBO agent.
 
@@ -433,170 +433,25 @@ class TuRBOLogEI(AskTellAgent):
         Raises:
             ValueError: If an unknown acqf_opt_strategy is given.
         """
-        self.dtype = dtype
-        self.device = device
-        self.input_dim = input_dim
-        self.use_dsp = use_dsp
-        self.n_candidates = n_candidates
-        self.n_restarts = n_restarts
         if acqf_opt_strategy not in {"no_raasp", "raasp"}:
             # There is no "default" strategy for this agent, since it doesn't have a
             # corresponding paper
             msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
             raise ValueError(msg)
-        self.acqf_opt_strategy = acqf_opt_strategy
-
-        self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
-        self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
-        self.model = None
-        self.state: TuRBOState | None = None
-        self._restart_buffer = torch.empty(
-            0, self.input_dim, dtype=dtype, device=device
+        super().__init__(
+            input_dim=input_dim,
+            acqf_opt_strategy=acqf_opt_strategy,
+            dtype=dtype,
+            device=device,
+            use_dsp=use_dsp,
+            **kwargs,
         )
+        self.n_candidates = n_candidates
+        self.n_restarts = n_restarts
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""
         return "turbo_log_ei_dsp" if self.use_dsp else "turbo_log_ei"
-
-    def _fit_model(self) -> None:
-        """Fit a SingleTaskGP model using ExactMarginalLogLikelihood.
-
-        Uses the TuRBO Matérn kernel with explicit constraints as in the original paper
-        when use_dsp=False, or the BoTorch default SingleTaskGP with DSP priors when
-        use_dsp=True.
-        """
-        if self.use_dsp:
-            self.model = SingleTaskGP(self.train_X, self.train_y)
-        else:
-            likelihood = GaussianLikelihood(noise_constraint=Interval(5e-4, 0.2))
-            covar_module = ScaleKernel(
-                MaternKernel(
-                    nu=2.5,
-                    ard_num_dims=self.input_dim,
-                    lengthscale_constraint=Interval(0.005, 2.0),
-                ),
-                outputscale_constraint=Interval(0.05, 20.0),
-            )
-            self.model = SingleTaskGP(
-                self.train_X,
-                self.train_y,
-                covar_module=covar_module,
-                likelihood=likelihood,
-            )
-            # Initialize model hypers
-            self.model.initialize(**{
-                "covar_module.outputscale": 1.0,
-                "covar_module.base_kernel.lengthscale": 0.5,
-                "likelihood.noise": 0.005,
-            })
-
-        mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
-        with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
-            fit_gpytorch_mll(mll)
-
-    def _get_trust_region_bounds(
-        self,
-        center: Float[torch.Tensor, " D"],
-        length: float,
-    ) -> tuple[Float[torch.Tensor, " D"], Float[torch.Tensor, " D"]]:
-        """Get the trust region bounds centered around the best point.
-
-        Args:
-            center: Center point of the trust region (best point found so far).
-            length: Length of the trust region.
-
-        Returns:
-            A tuple of (tr_lb, tr_ub) tensors in [0,1]^d space.
-        """
-        # Scale the TR to be proportional to the lengthscales
-        if self.use_dsp:
-            # With DSP enabled, there is no ScaleKernel wrapping the base kernel
-            lengthscale = self.model.covar_module.lengthscale
-        else:
-            lengthscale = self.model.covar_module.base_kernel.lengthscale
-        weights = lengthscale.squeeze().detach()
-        weights = weights / weights.mean()
-        weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
-
-        # Create trust region bounds in [0,1]^d space with lengthscale scaling
-        tr_lb = torch.clamp(center - weights * length / 2.0, 0.0, 1.0)
-        tr_ub = torch.clamp(center + weights * length / 2.0, 0.0, 1.0)
-
-        return tr_lb, tr_ub
-
-    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
-        """Provide initial observations to the agent and fit the SingleTaskGP model.
-
-        Args:
-            data: Initial observations to provide to the agent.
-            seed: Random seed for reproducibility. Implementations should use this
-                seed for any stochastic operations to ensure deterministic behavior.
-        """
-        self.train_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
-        self.train_y = torch.tensor(
-            data.y, dtype=self.dtype, device=self.device
-        ).unsqueeze(-1)
-
-        self.n_init = self.train_X.shape[0]  # Used for TuRBO restarts
-
-        self.state = TuRBOState(
-            dim=self.input_dim,
-            batch_size=1,  # Will be updated on first ask
-            best_value=self.train_y.max().item(),
-        )
-
-        self._fit_model()
-
-    def tell(self, data: Dataset, seed: int) -> None:
-        """Update the agent with new observations and refit the SingleTaskGP model.
-
-        Args:
-            data: Observations corresponding to the points requested in the previous
-                `ask` call.
-            seed: Random seed for reproducibility. Implementations should use this
-                seed for any stochastic operations to ensure deterministic behavior.
-
-        Raises:
-            RuntimeError: If the TuRBO state has not been initialized with
-                `tell_initial_data`.
-        """
-        if self.state is None:
-            msg = "TuRBO state has not been initialized. Call tell_initial_data first."
-            raise RuntimeError(msg)
-
-        new_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
-        new_y = torch.tensor(data.y, dtype=self.dtype, device=self.device).unsqueeze(-1)
-
-        # Don't update the trust region if new_y is still from init buffer
-        if self.model:
-            self.state = update_state(self.state, new_y)
-
-        self.train_X = torch.cat([self.train_X, new_X])
-        self.train_y = torch.cat([self.train_y, new_y])
-
-        if self.state.restart_triggered:
-            # Reset state
-            self.state = TuRBOState(
-                dim=self.input_dim,
-                batch_size=self.state.batch_size,
-            )
-
-            # Purge local data
-            self.train_X = torch.empty(
-                0, self.input_dim, dtype=self.dtype, device=self.device
-            )
-            self.train_y = torch.empty(0, 1, dtype=self.dtype, device=self.device)
-            self.model = None
-
-            # Fill up the restart buffer
-            sobol = SobolEngine(self.input_dim, scramble=True, seed=seed)
-            self._restart_buffer = sobol.draw(self.n_init).to(
-                dtype=self.dtype, device=self.device
-            )
-
-        # No need to fit model when init buffer is still being unrolled
-        elif self._restart_buffer.shape[0] == 0:
-            self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
         """Select the next points to evaluate using TuRBO with log EI.
