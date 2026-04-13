@@ -156,11 +156,13 @@ def main() -> None:  # noqa: PLR0915
     )
 
     # Build experiment directory and file paths
-    # Structure: results/{benchmark}/{agent}/acqf_opt_{strategy}/
+    # Structure: results/{benchmark}/{agent}/acqf_opt_{strategy}/[batch_{N}/]
     problem_name = args.benchmark
     agent_name = str(agent)
     acqf_opt_dir = f"acqf_opt_{args.acqf_opt_strategy}"
     experiment_dir = RESULTS_DIR / problem_name / agent_name / acqf_opt_dir
+    if args.batch_size > 1:
+        experiment_dir = experiment_dir / f"batch_{args.batch_size}"
     experiment_dir.mkdir(parents=True, exist_ok=True)
 
     xs_file = experiment_dir / f"seed_{seed}_xs.npy"
@@ -221,6 +223,8 @@ def main() -> None:  # noqa: PLR0915
         ],
     )
     wandb_group = f"{problem_name}/{agent_name}/{acqf_opt_dir}"
+    if args.batch_size > 1:
+        wandb_group += f"/batch_{args.batch_size}"
     logger.info(f"Experiment: {wandb_group}, seed={seed}")
     logger.info(
         f"SLURM_JOB_ID={os.environ.get('SLURM_JOB_ID')},"

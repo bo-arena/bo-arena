@@ -211,6 +211,8 @@ def build_sbatch_cmd(
     acqf_opt_strategy: str,
     seed_range: str,
     config: dict[str, str],
+    batch_size: int | None = None,
+    n_evals: int | None = None,
 ) -> list[str]:
     """Build the sbatch command for a single experiment combination."""
     profile = get_profile(agent, benchmark)
@@ -226,8 +228,12 @@ def build_sbatch_cmd(
         f"ACQF_OPT_STRATEGY={acqf_opt_strategy}",
         f"DEVICE={profile['device']}",
     ]
-    if "n_evals" in profile:
+    if n_evals is not None:
+        export_parts.append(f"N_EVALS={n_evals}")
+    elif "n_evals" in profile:
         export_parts.append(f"N_EVALS={profile['n_evals']}")
+    if batch_size is not None:
+        export_parts.append(f"BATCH_SIZE={batch_size}")
     export_vars = ",".join(export_parts)
 
     cmd = [
@@ -283,6 +289,18 @@ def main() -> None:
         help="SLURM array range for seeds (default: 0-9)",
     )
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Batch size for candidate generation (overrides default of 1)",
+    )
+    parser.add_argument(
+        "--n-evals",
+        type=int,
+        default=None,
+        help="Total number of evaluations (overrides agent profile default)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print sbatch commands without submitting",
@@ -313,7 +331,15 @@ def main() -> None:
     failed = 0
 
     for benchmark, agent, strategy in grid:
-        cmd = build_sbatch_cmd(benchmark, agent, strategy, args.seed_range, config)
+        cmd = build_sbatch_cmd(
+            benchmark,
+            agent,
+            strategy,
+            args.seed_range,
+            config,
+            batch_size=args.batch_size,
+            n_evals=args.n_evals,
+        )
         profile = get_profile(agent, benchmark)
         mem = resolve_mem(agent, benchmark)
         time = resolve_time(agent, benchmark)

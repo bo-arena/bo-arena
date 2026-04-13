@@ -327,3 +327,97 @@ class VanillaBOYu2026(AskTellAgent):
         )
 
         return candidates.detach().cpu().numpy()
+
+
+class WindowVanillaBO(VanillaBO):
+    """Modification of Hvarfner's Vanilla BO to scale to high N.
+
+    Adopts the same approach as Hvarfner et al. but uses a simple approach to scale to
+    high numbers of observations N by solely retaining a window of the most recent
+    `window_size` observations, and discarding the rest.
+
+    Reference:
+        Hvarfner, C., Hellsten, E. O., & Nardi, L. (2024). Vanilla Bayesian Optimization
+        Performs Great in High Dimensions. International Conference on Machine Learning
+        (ICML).
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        acqf_opt_strategy: str = "default",
+        window_size: int = 100,
+        dtype: torch.dtype = torch.float64,
+        device: torch.device | str = "cpu",
+        **kwargs: object,
+    ) -> None:
+        """Initialize the VanillaBO agent.
+
+        Args:
+            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
+              "default", "no_raasp", or "botorch_raasp". Setting "default" uses the same
+              settings as in the original paper.
+            window_size: The number of most recent observations to retain when fitting
+              the model. Older observations will be discarded.
+            dtype: The torch dtype to use for the model and data.
+            device: The torch device to use for the model and data.
+            kwargs: Additional arguments.
+
+        Raises:
+            ValueError: If an unknown acqf_opt_strategy is given.
+        """
+        self.window_size = window_size
+        super().__init__(
+            input_dim=input_dim,
+            acqf_opt_strategy=acqf_opt_strategy,
+            dtype=dtype,
+            device=device,
+            **kwargs,
+        )
+
+    def __str__(self) -> str:
+        """Return a string representation of the agent."""
+        return f"window_{self.window_size}_vanilla_bo"
+
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Provide initial observations to the agent and fit the SingleTaskGP model.
+
+        Note that this method retains only the most recent `window_size` observations
+        from the initial data.
+
+        Args:
+            data: Initial observations to provide to the agent.
+            seed: Random seed for reproducibility.
+        """
+        self.train_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        self.train_y = torch.tensor(
+            data.y, dtype=self.dtype, device=self.device
+        ).unsqueeze(-1)
+        # Retain only the most recent `window_size` observations
+        if self.train_X.shape[0] > self.window_size:
+            self.train_X = self.train_X[-self.window_size :]
+            self.train_y = self.train_y[-self.window_size :]
+        self._fit_model()
+
+    def tell(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Update the agent with new observations and refit the SingleTaskGP model.
+
+        Note that this method retains only the most recent `window_size` observations
+        when fitting the model, discarding older observations.
+
+        Args:
+            data: Observations corresponding to the points requested in the previous
+                `ask` call.
+            seed: Random seed for reproducibility.
+        """
+        new_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        new_y = torch.tensor(data.y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+
+        self.train_X = torch.cat([self.train_X, new_X])
+        self.train_y = torch.cat([self.train_y, new_y])
+        # Retain only the most recent `window_size` observations
+        if self.train_X.shape[0] > self.window_size:
+            self.train_X = self.train_X[-self.window_size :]
+            self.train_y = self.train_y[-self.window_size :]
+        self._fit_model()
