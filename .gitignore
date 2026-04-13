@@ -216,7 +216,9 @@ __marimo__/
 tests/regression_reports/
 
 # Experiment results and logs
+eulbo_results/
 results/
+results_v2/
 logs/
 wandb/
 results_old/

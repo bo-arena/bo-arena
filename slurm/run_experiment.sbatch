@@ -14,6 +14,7 @@
 #
 # Optional environment variables:
 #   N_EVALS            - total number of evaluations (overrides benchmark default)
+#   BATCH_SIZE         - batch size for candidate generation (default: 1)
 
 source "$(pwd)/slurm/preamble.sh"
 
@@ -66,5 +67,6 @@ singularity exec \
             --port 50051 \
             --device $DEVICE \
             --dtype float64 \
-            ${N_EVALS:+--n-evals $N_EVALS}
+            ${N_EVALS:+--n-evals $N_EVALS} \
+            ${BATCH_SIZE:+--batch-size $BATCH_SIZE}
     "
