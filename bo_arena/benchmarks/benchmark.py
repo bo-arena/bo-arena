@@ -7,11 +7,7 @@ from bencherscaffold.client import BencherClient
 from bencherscaffold.protoclasses.bencher_pb2 import Value
 from jaxtyping import Float
 
-from bo_arena.benchmarks.metadata import (
-    BBOB_BENCHMARK_METADATA,
-    BENCHMARK_METADATA,
-    BenchmarkMetadata,
-)
+from bo_arena.benchmarks.metadata import BENCHMARK_METADATA, BenchmarkMetadata
 
 
 class Benchmark:
@@ -69,7 +65,7 @@ class BencherBenchmark(Benchmark):
         port: int = 50051,
     ) -> None:
         if metadata is None:
-            metadata = BENCHMARK_METADATA.get(name) or BBOB_BENCHMARK_METADATA.get(name)
+            metadata = BENCHMARK_METADATA.get(name)
             if metadata is None:
                 msg = f"Metadata not found for benchmark '{name}'."
                 raise ValueError(msg)

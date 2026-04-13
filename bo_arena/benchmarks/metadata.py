@@ -80,10 +80,6 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             upper_bounds=np.ones(6392),
         ),
     ),
-}
-
-
-BBOB_BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
     "bbob-attractivesector": BenchmarkMetadata(
         input_dim=100,
         input_type=ValueType.CONTINUOUS,
