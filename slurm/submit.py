@@ -47,7 +47,7 @@ RESOURCE_PROFILES = {
     "default": {
         "device": "cpu",
         "cpus": 4,
-        "mem": "4G",
+        "mem": "6G",
         "time": "48:00:00",
     },
 }
@@ -58,10 +58,6 @@ RESOURCE_PROFILES = {
 # Benchmarks not listed here use 0 (i.e., agent profile decides).
 # ---------------------------------------------------------------------------
 BENCHMARK_MEM = {
-    "rover": "6G",
-    "mopta08": "6G",
-    "lasso-dna": "6G",
-    "svm": "6G",
     "mujoco-ant": "12G",
     "mujoco-humanoid": "16G",
 }
@@ -190,7 +186,7 @@ def resolve_mem(agent: str, benchmark: str) -> str:
     override = COMBO_OVERRIDES.get((benchmark, agent), {})
     if "mem" in override:
         return _format_mem(agent_mem)
-    bench_mem = _parse_mem(BENCHMARK_MEM.get(benchmark, "0"))
+    bench_mem = _parse_mem(BENCHMARK_MEM.get(benchmark, "0G"))
     return _format_mem(max(agent_mem, bench_mem))
 
 
