@@ -80,6 +80,66 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             upper_bounds=np.ones(6392),
         ),
     ),
+    "bbob-attractivesector": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "bbob-ellipsoidrotated": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "bbob-sharpridge": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "bbob-rastriginrotated": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "bbob-griewankrosenbrock": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "bbob-schwefel": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
 }
 
 
