@@ -18,12 +18,12 @@ def get_cum_max_y_stats(
     Returns:
         A tuple containing two 1D arrays of shape (n_evals,):
             - The mean cumulative max y values across runs.
-            - The standard deviation of the cumulative max y values across runs.
+            - The standard error of the mean of the cumulative max y values across runs.
     """
     cum_max_ys = np.maximum.accumulate(ys, axis=1)
     mean_cum_max_ys = np.mean(cum_max_ys, axis=0)
-    std_cum_max_ys = np.std(cum_max_ys, axis=0)
-    return mean_cum_max_ys, std_cum_max_ys
+    sem_cum_max_ys = np.std(cum_max_ys, axis=0) / np.sqrt(cum_max_ys.shape[0])
+    return mean_cum_max_ys, sem_cum_max_ys
 
 
 def get_all_seed_y_vals(
