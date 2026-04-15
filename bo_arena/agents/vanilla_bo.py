@@ -421,3 +421,128 @@ class WindowVanillaBO(VanillaBO):
             self.train_X = self.train_X[-self.window_size :]
             self.train_y = self.train_y[-self.window_size :]
         self._fit_model()
+
+
+class BestWindowVanillaBO(VanillaBO):
+    """Modification of Hvarfner's Vanilla BO to scale to high N.
+
+    Adopts the same approach as WindowVanillaBO but ensures that the best `n_best`
+    observations (by y-value) are always retained in the window, even if they fall
+    outside the most recent `window_size` observations.
+
+    The window is constructed by taking the union of:
+    1. The top `n_best` points by y-value from the current data.
+    2. The most recent observations, filling the remaining window capacity.
+
+    Duplicates are avoided: if a top-n point is already in the recency window, it
+    doesn't consume an extra slot.
+
+    Reference:
+        Hvarfner, C., Hellsten, E. O., & Nardi, L. (2024). Vanilla Bayesian Optimization
+        Performs Great in High Dimensions. International Conference on Machine Learning
+        (ICML).
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        acqf_opt_strategy: str = "default",
+        window_size: int = 100,
+        n_best: int = 1,
+        dtype: torch.dtype = torch.float64,
+        device: torch.device | str = "cpu",
+        **kwargs: object,
+    ) -> None:
+        """Initialize the BestWindowVanillaBO agent.
+
+        Args:
+            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
+              "default", "no_raasp", or "botorch_raasp". Setting "default" uses the same
+              settings as in the original paper.
+            window_size: The maximum number of observations to retain when fitting
+              the model.
+            n_best: The number of top-performing observations to always retain.
+            dtype: The torch dtype to use for the model and data.
+            device: The torch device to use for the model and data.
+            kwargs: Additional arguments.
+
+        Raises:
+            ValueError: If an unknown acqf_opt_strategy is given, or if n_best >
+              window_size.
+        """
+        if n_best > window_size:
+            msg = f"n_best ({n_best}) must be <= window_size ({window_size})"
+            raise ValueError(msg)
+        self.window_size = window_size
+        self.n_best = n_best
+        super().__init__(
+            input_dim=input_dim,
+            acqf_opt_strategy=acqf_opt_strategy,
+            dtype=dtype,
+            device=device,
+            **kwargs,
+        )
+
+    def __str__(self) -> str:
+        """Return a string representation of the agent."""
+        return f"best_{self.n_best}_window_{self.window_size}_vanilla_bo"
+
+    def _apply_window(self) -> None:
+        """Select the training window: top n_best + most recent to fill capacity."""
+        N = self.train_X.shape[0]
+        if self.window_size >= N:
+            return
+
+        # Indices of the top n_best points by y-value
+        top_indices = torch.topk(self.train_y.squeeze(-1), min(self.n_best, N)).indices
+
+        # Indices of the most recent observations
+        recent_indices = torch.arange(N - self.window_size, N, device=self.device)
+
+        # Union of both sets (unique indices), preserving at most window_size
+        all_indices = torch.cat([top_indices, recent_indices])
+        unique_indices = torch.unique(all_indices)
+
+        # If union exceeds window_size, prioritize top-n and trim recency
+        if unique_indices.shape[0] > self.window_size:
+            top_set = set(top_indices.tolist())
+            recent_list = recent_indices.tolist()
+            # Keep all top-n, fill remaining from recent (most recent first)
+            remaining = self.window_size - len(top_set)
+            recent_only = [i for i in reversed(recent_list) if i not in top_set]
+            keep = sorted(top_set | set(recent_only[:remaining]))
+            unique_indices = torch.tensor(keep, device=self.device, dtype=torch.long)
+
+        self.train_X = self.train_X[unique_indices]
+        self.train_y = self.train_y[unique_indices]
+
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Provide initial observations to the agent and fit the SingleTaskGP model.
+
+        Args:
+            data: Initial observations to provide to the agent.
+            seed: Random seed for reproducibility.
+        """
+        self.train_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        self.train_y = torch.tensor(
+            data.y, dtype=self.dtype, device=self.device
+        ).unsqueeze(-1)
+        self._apply_window()
+        self._fit_model()
+
+    def tell(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        """Update the agent with new observations and refit the SingleTaskGP model.
+
+        Args:
+            data: Observations corresponding to the points requested in the previous
+                `ask` call.
+            seed: Random seed for reproducibility.
+        """
+        new_X = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        new_y = torch.tensor(data.y, dtype=self.dtype, device=self.device).unsqueeze(-1)
+
+        self.train_X = torch.cat([self.train_X, new_X])
+        self.train_y = torch.cat([self.train_y, new_y])
+        self._apply_window()
+        self._fit_model()
