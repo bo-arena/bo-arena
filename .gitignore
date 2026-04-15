@@ -208,6 +208,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# macOS
+.DS_Store
+
 # Other file types to ignore
 *.ipynb
 *.sif

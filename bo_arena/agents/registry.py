@@ -7,7 +7,7 @@ from .linear import LinearBO
 from .random import Random
 from .saasbo import SAASBO
 from .turbo import TuRBO, TuRBOLogEI
-from .vanilla_bo import VanillaBO, VanillaBOYu2026, WindowVanillaBO
+from .vanilla_bo import BestWindowVanillaBO, VanillaBO, VanillaBOYu2026, WindowVanillaBO
 
 AGENTS = {
     "baxus": BAxUS,
@@ -21,5 +21,6 @@ AGENTS = {
     "turbo_log_ei_dsp": partial(TuRBOLogEI, use_dsp=True),
     "vanilla_bo": VanillaBO,
     "vanilla_bo_yu_2026": VanillaBOYu2026,
+    "best_window_vanilla_bo": BestWindowVanillaBO,
     "window_vanilla_bo": WindowVanillaBO,
 }
