@@ -79,8 +79,8 @@ plot_cum_max_y_custom(
 
 # %%
 plot_cum_max_y_custom(
-    agents={"window_100_vanilla_bo": ["default"], "eulbo": ["default"]},
-    problems=["rover", "mopta08", "lasso-dna"],
+    agents={"window_100_vanilla_bo": ["default"], "best_1_window_100_vanilla_bo": ["default"], "eulbo": ["default"]},
+    problems=["mopta08", "lasso-dna", "svm"],
     filename="eulbo",
 )
 

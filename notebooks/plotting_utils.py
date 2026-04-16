@@ -18,6 +18,7 @@ plt.rcParams.update({"figure.dpi": 200})
 
 AGENT_NAME_MAPPING = {
     "baxus": "BAxUS",
+    "best_1_window_100_vanilla_bo": "Vanilla BO (best 1 + window 100)",
     "eulbo": "EULBO",
     "linear_bo": "Linear BO",
     "random": "Random",
@@ -37,6 +38,7 @@ _PAULTOL = palettes.paultol_bright
 # group). Double-check the palette before adding a new co-plot combination.
 AGENT_COLOR_MAPPING = {
     "baxus": f"#{_PAULTOL[3]}",
+    "best_1_window_100_vanilla_bo": f"#{_PAULTOL[4]}",
     "eulbo": f"#{_PAULTOL[1]}",
     "linear_bo": f"#{_PAULTOL[1]}",
     "random": "#555555",
@@ -103,7 +105,7 @@ def _results_dir(agent_name: str, problem: str, strategy: str) -> Path:
     if agent_name == "eulbo":
         return EULBO_RESULTS_DIR / problem
     base = RESULTS_DIR / problem / agent_name / f"acqf_opt_{strategy}"
-    if agent_name == "window_100_vanilla_bo":
+    if agent_name in ["window_100_vanilla_bo", "best_1_window_100_vanilla_bo"]:
         return base / "batch_20"
     return base
 
