@@ -98,12 +98,7 @@ def main() -> None:
     metadata = benchmark.metadata
     input_dim = metadata.input_dim
 
-    # Resolve n_init and n_tot
-    n_init = (
-        args.n_initial_points
-        if args.n_initial_points is not None
-        else metadata.default_n_initial_points
-    )
+    # Resolve n_tot (n_init is left as None so Arena applies agent/benchmark defaults)
     n_tot = (
         args.n_total_evaluations
         if args.n_total_evaluations is not None
@@ -126,7 +121,7 @@ def main() -> None:
         benchmark=benchmark,
         agent=agent,
         seed=args.seed,
-        n_initial_points=n_init,
+        n_initial_points=args.n_initial_points,
         n_total_evaluations=n_tot,
         batch_size=args.batch_size,
         logger=logger,

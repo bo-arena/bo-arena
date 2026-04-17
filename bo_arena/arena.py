@@ -69,10 +69,12 @@ class Arena:
         self._key = np.random.SeedSequence(seed)
         self._has_run = False
 
-        if n_initial_points is None:
-            self.n_initial_points = benchmark.metadata.default_n_initial_points
-        else:
+        if n_initial_points is not None:
             self.n_initial_points = n_initial_points
+        elif agent.default_n_initial_points is not None:
+            self.n_initial_points = agent.default_n_initial_points
+        else:
+            self.n_initial_points = benchmark.metadata.default_n_initial_points
 
         if n_total_evaluations is None:
             self.n_total_evaluations = benchmark.metadata.default_n_total_evaluations

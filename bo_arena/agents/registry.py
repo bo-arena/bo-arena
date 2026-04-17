@@ -3,6 +3,7 @@
 from functools import partial
 
 from .baxus import BAxUS
+from .bounce import Bounce
 from .linear import LinearBO
 from .random import Random
 from .saasbo import SAASBO
@@ -12,6 +13,7 @@ from .vanilla_bo import BestWindowVanillaBO, VanillaBO, VanillaBOYu2026, WindowV
 AGENTS = {
     "baxus": BAxUS,
     "baxus_dsp": partial(BAxUS, use_dsp=True),
+    "bounce": Bounce,
     "linear_bo": LinearBO,
     "random": Random,
     "saasbo": SAASBO,

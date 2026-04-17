@@ -75,6 +75,16 @@ class AskTellAgent(ABC):
         """
         raise NotImplementedError
 
+    @property
+    def default_n_initial_points(self) -> int | None:
+        """Return the agent's preferred number of initial points, or None to defer.
+
+        Override this in agents that require a specific number of initial points
+        regardless of the benchmark default (e.g. Bounce always needs exactly 5).
+        When None, the Arena falls back to the benchmark's default.
+        """
+        return None
+
     def generate_initial_points(  # noqa: PLR6301
         self,
         n: int,  # noqa: ARG002
