@@ -27,6 +27,7 @@ from bo_arena.agents.baxus_bounce_utils import (
     increase_embedding_and_observations,
     update_bounce_state,
 )
+from bo_arena.utils.acqf_opt import get_opt_kwargs
 from bo_arena.utils.dataset import Dataset
 
 
@@ -48,6 +49,8 @@ class Bounce(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
+        acqf_opt_strategy: str = "default",
+        use_dsp: bool = False,  # noqa: FBT002
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         **kwargs: Any,  # noqa: ANN401
@@ -56,14 +59,24 @@ class Bounce(AskTellAgent):
 
         Args:
             input_dim: Dimensionality of the input space (assumed [0,1]^d).
+            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
+              "default", "no_raasp", or "botorch_raasp". Setting "default" preserves
+              the original Bounce optimizer settings (raw_samples=512, num_restarts=10).
+            use_dsp: If True, use BoTorch's default SingleTaskGP (Hvarfner's
+              Dimensionality-Scaled Prior) instead of the Matern-2.5 + ARD + Gamma
+              priors used in the original Bounce paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             kwargs: Additional arguments. 'n_total_evaluations' (int) is required.
+
+        Raises:
+            ValueError: If an unknown acqf_opt_strategy is given.
 
         """
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
+        self.use_dsp = use_dsp
         self.n_total_evaluations: int | None = kwargs.get("n_total_evaluations")
         if self.n_total_evaluations is None:
             msg = (
@@ -71,6 +84,20 @@ class Bounce(AskTellAgent):
                 "Pass it as a keyword argument to the constructor."
             )
             raise RuntimeError(msg)
+
+        if acqf_opt_strategy == "default":
+            self.opt_kwargs = {
+                "raw_samples": 512,
+                "num_restarts": 10,
+                "options": {
+                    "batch_limit": 64,
+                },
+            }
+        elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
+            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
+        else:
+            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
+            raise ValueError(msg)
 
         self.train_X: torch.Tensor | None = None  # stored in [0, 1]^target_dim
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
@@ -95,7 +122,7 @@ class Bounce(AskTellAgent):
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""
-        return "bounce"
+        return "bounce_dsp" if self.use_dsp else "bounce"
 
     @property
     def default_n_initial_points(self) -> int:
@@ -113,25 +140,30 @@ class Bounce(AskTellAgent):
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model in the low-dimensional subspace.
 
-        Uses Matern-2.5 with ARD and Gamma priors on train_X which is stored
-        in [0,1]^target_dim. Falls back to Adam if standard fitting fails.
+        When use_dsp=False, uses Matern-2.5 with ARD and Gamma priors on train_X
+        which is stored in [0,1]^target_dim. When use_dsp=True, uses BoTorch's
+        default SingleTaskGP (Hvarfner's DSP). Falls back to Adam if standard
+        fitting fails.
         """
-        target_dim = self.train_X.shape[-1]
-        likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.1, 0.05))
-        covar_module = ScaleKernel(
-            MaternKernel(
-                nu=2.5,
-                ard_num_dims=target_dim,
-                lengthscale_prior=GammaPrior(1.5, 0.1),
-            ),
-            outputscale_prior=GammaPrior(1.5, 0.5),
-        )
-        self.model = SingleTaskGP(
-            self.train_X,
-            self.train_y,
-            covar_module=covar_module,
-            likelihood=likelihood,
-        )
+        if self.use_dsp:
+            self.model = SingleTaskGP(self.train_X, self.train_y)
+        else:
+            target_dim = self.train_X.shape[-1]
+            likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.1, 0.05))
+            covar_module = ScaleKernel(
+                MaternKernel(
+                    nu=2.5,
+                    ard_num_dims=target_dim,
+                    lengthscale_prior=GammaPrior(1.5, 0.1),
+                ),
+                outputscale_prior=GammaPrior(1.5, 0.5),
+            )
+            self.model = SingleTaskGP(
+                self.train_X,
+                self.train_y,
+                covar_module=covar_module,
+                likelihood=likelihood,
+            )
 
         mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
@@ -169,7 +201,10 @@ class Bounce(AskTellAgent):
         Returns:
             A tuple of (tr_lb, tr_ub) tensors in [0,1]^target_dim.
         """
-        lengthscale = self.model.covar_module.base_kernel.lengthscale
+        if self.use_dsp:
+            lengthscale = self.model.covar_module.lengthscale
+        else:
+            lengthscale = self.model.covar_module.base_kernel.lengthscale
         weights = lengthscale.squeeze().detach()
         if weights.ndim > 0:
             weights = weights / weights.mean()
@@ -418,8 +453,7 @@ class Bounce(AskTellAgent):
                     acq_function=acqf,
                     bounds=bounds,
                     q=1,
-                    num_restarts=10,
-                    raw_samples=512,
+                    **self.opt_kwargs,
                 )
             else:
                 # Sequential greedy with X_pending
@@ -439,8 +473,7 @@ class Bounce(AskTellAgent):
                         acq_function=acqf,
                         bounds=bounds,
                         q=1,
-                        num_restarts=10,
-                        raw_samples=512,
+                        **self.opt_kwargs,
                     )
                     cand_list.append(x_new)
                 candidates = torch.cat(cand_list, dim=0)

@@ -14,6 +14,7 @@ AGENTS = {
     "baxus": BAxUS,
     "baxus_dsp": partial(BAxUS, use_dsp=True),
     "bounce": Bounce,
+    "bounce_dsp": partial(Bounce, use_dsp=True),
     "linear_bo": LinearBO,
     "random": Random,
     "saasbo": SAASBO,
