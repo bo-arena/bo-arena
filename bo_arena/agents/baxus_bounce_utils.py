@@ -14,67 +14,19 @@ from jaxtyping import Float
 
 
 @dataclass
-class BAxUSState:
-    """BAxUS state used to track the trust region adaptive subspace expansion."""
-
-    input_dim: int  # Corresponds to the original (input) dimensionality of the problem
-    eval_budget: int
-    new_bins_on_split: int = 3
-    d_init: int = dataclasses.field(init=False)  # Note: Post-initialized
-    target_dim: int = dataclasses.field(init=False)  # Note: Post-initialized
-    n_splits: int = dataclasses.field(init=False)  # Note: Post-initialized
-    length: float = 0.8
-    length_init: float = 0.8
-    length_min: float = 0.5**7
-    length_max: float = 1.6
-    failure_counter: int = 0
-    success_counter: int = 0
-    success_tolerance: int = 3
-    best_value: float = -float("inf")
-    restart_triggered: bool = False
-
-    def __post_init__(self) -> None:
-        """Initialize the subspace dimensionality and split parameters."""
-        self.n_splits = round(math.log(self.input_dim, self.new_bins_on_split + 1))
-        self.d_init = int(
-            1
-            + np.argmin(
-                np.abs(
-                    (1 + np.arange(self.new_bins_on_split))
-                    * (1 + self.new_bins_on_split) ** self.n_splits
-                    - self.input_dim
-                )
-            )
-        )
-        self.target_dim = self.d_init
-
-    @property
-    def split_budget(self) -> int:
-        """Calculate the evaluation budget allocated to each subspace split."""
-        num = self.new_bins_on_split * self.eval_budget * self.target_dim
-        den = self.d_init * (1 - (self.new_bins_on_split + 1) ** (self.n_splits + 1))
-        return round(-1 * num / den)
-
-    @property
-    def failure_tolerance(self) -> int:
-        """Calculate failures allowed before shrinking the trust region."""
-        if self.target_dim == self.input_dim:
-            return self.target_dim
-        k = math.floor(math.log(self.length_min / self.length_init, 0.5))
-        return min(self.target_dim, max(1, math.floor(self.split_budget / k)))
-
-
-@dataclass
 class BounceState:
     """Bounce state used to track the adaptive subspace expansion (continuous-only)."""
 
     # Problem and embedding configuration
     input_dim: int
     n_initial_points: int
-    eval_budget: int
+    eval_budget: int  # Total number of evaluations (including initial points)
+    # allocated to the entire run
     new_bins_on_split: int = 2
     initial_target_dim: int = 2
-    eval_budget_until_input_dim: int = 250
+    eval_budget_until_input_dim: int = 250  # TODO(Thomas-Christie): a sensible way of
+    # setting this (and some of the properties above) should be considered when we
+    # release bo-arena.
 
     # Computed embedding and dimensionality state (post-initialized)
     d_init: int = dataclasses.field(init=False)
@@ -95,27 +47,35 @@ class BounceState:
 
     # Optimization state
     split_budgets: dict[int, int] = dataclasses.field(init=False)
+    n_evals: int = 0  # Stores total number of evaluations (including initial points),
+    # managed by Bounce agent
     terminated: bool = False
 
     def __post_init__(self) -> None:
         """Compute split schedule and per-tier budgets."""
-        # Initialize dimensionality and budget parameters
-        self.eval_budget_until_input_dim = max(
-            self.n_initial_points + 1,
-            min(self.eval_budget_until_input_dim, self.eval_budget),
-        )
+        if self.eval_budget_until_input_dim > self.eval_budget:
+            msg = (
+                f"eval_budget_until_input_dim ({self.eval_budget_until_input_dim}) "
+                f"cannot exceed eval_budget ({self.eval_budget})"
+            )
+            raise ValueError(msg)
+        if self.eval_budget_until_input_dim <= self.n_initial_points:
+            msg = (
+                f"eval_budget_until_input_dim ({self.eval_budget_until_input_dim}) "
+                f"must exceed n_initial_points ({self.n_initial_points}) to leave "
+                f"at least one evaluation for the adaptive phase"
+            )
+            raise ValueError(msg)
+
         self.d_init = min(self.initial_target_dim, self.input_dim)
         self.target_dim = self.d_init
 
         # Compute number of splits and optimize bin count
-        self.n_splits = max(
-            1,
-            math.ceil(
-                math.log(
-                    max(self.input_dim, 2) / max(self.d_init, 1),
-                    self.new_bins_on_split + 1,
-                )
-            ),
+        self.n_splits = math.ceil(
+            math.log(
+                self.input_dim / self.d_init,
+                self.new_bins_on_split + 1,
+            )
         )
         self._adjust_number_bins_on_split()
 
@@ -130,7 +90,6 @@ class BounceState:
             for k in range(self.n_splits + 1)
         ]
         self.split_budgets = {t: self.split_budget_for(t) for t in tiers}
-        self.split_budgets[self.input_dim] = self.split_budget_for(self.input_dim)
 
     def _adjust_number_bins_on_split(self) -> None:
         """Pick ``new_bins_on_split`` that best reaches input_dim after n_splits splits.
@@ -150,11 +109,8 @@ class BounceState:
         best = int(possible[int(np.argmin(errs))])
         if best != self.new_bins_on_split:
             self.new_bins_on_split = best
-            self.n_splits = max(
-                1,
-                math.ceil(
-                    math.log(self.input_dim / self.d_init, self.new_bins_on_split + 1)
-                ),
+            self.n_splits = math.ceil(
+                math.log(self.input_dim / self.d_init, self.new_bins_on_split + 1)
             )
 
     def split_budget_for(self, target_dim: int) -> int:
@@ -168,11 +124,11 @@ class BounceState:
         """
         total_budget = self.eval_budget_until_input_dim - self.n_initial_points
         if target_dim >= self.input_dim:
-            return max(1, min(10 * target_dim, self.eval_budget))
+            return min(10 * target_dim, self.eval_budget - self.n_evals)
         num = self.new_bins_on_split * total_budget * target_dim
         den = self.d_init * (1 - (self.new_bins_on_split + 1) ** (self.n_splits + 1))
         split_budget = round(-num / den)
-        return max(1, min(2**target_dim, split_budget))
+        return min(2**target_dim, split_budget)
 
     def reset_trust_region(self) -> None:
         """Reset trust region lengths after split or restart."""
@@ -183,60 +139,19 @@ class BounceState:
         self.terminated = False
 
 
-def update_baxus_state(
-    state: BAxUSState, y_next: Float[torch.Tensor, "n 1"]
-) -> BAxUSState:
-    """Update the state of the trust region based on the new function values.
-
-    Note:
-        This function modifies the `state` object in-place.
-
-    Args:
-        state: Current BAxUS state.
-        y_next: New function values from the latest batch.
-
-    Returns:
-        Updated BAxUS state.
-    """
-    if max(y_next) > state.best_value + 1e-3 * math.fabs(state.best_value):
-        state.success_counter += 1
-        state.failure_counter = 0
-    else:
-        state.success_counter = 0
-        state.failure_counter += 1
-
-    if state.success_counter == state.success_tolerance:  # Expand trust region
-        state.length = min(2.0 * state.length, state.length_max)
-        state.success_counter = 0
-    elif state.failure_counter == state.failure_tolerance:  # Shrink trust region
-        state.length /= 2.0
-        state.failure_counter = 0
-
-    state.best_value = max(state.best_value, max(y_next).item())
-    if state.length < state.length_min:
-        state.restart_triggered = True
-
-    return state
-
-
-def compute_adjustment_factor(
-    state: BounceState, n_evals: int, batch_size: int
-) -> float:
+def compute_adjustment_factor(state: BounceState, batch_size: int) -> float:
     """Calculate the geometric shrink factor for the trust region.
 
     Args:
         state: Current Bounce state.
-        n_evals: Number of evaluations completed so far.
         batch_size: Size of the current batch.
 
     Returns:
         Geometric adjustment factor for the trust region length.
     """
     # Remaining evaluation budget for the current dimensionality tier
-    remaining = state.split_budgets.get(
-        state.target_dim, state.split_budget_for(state.target_dim)
-    )
-    remaining = min(remaining, state.eval_budget - n_evals)
+    remaining = state.split_budgets[state.target_dim]
+    remaining = min(remaining, state.eval_budget - state.n_evals)
     remaining = max(remaining, 1)
 
     # Geometric factor chosen so that length_discrete_continuous reaches
@@ -245,10 +160,10 @@ def compute_adjustment_factor(
         1.0 / remaining
     )
     factor = factor**batch_size
-    return float(np.clip(factor, 1e-10, None))
+    return float(np.clip(factor, a_min=1e-10, a_max=None))
 
 
-def update_bounce_state(
+def update_bounce_trust_region_state(
     state: BounceState,
     y_next: Float[torch.Tensor, "n 1"],
     y_best_prev: float,
@@ -279,7 +194,7 @@ def update_bounce_state(
     else:
         state.length_discrete_continuous = min(
             state.length_discrete_continuous / adjustment_factor,
-            float(state.input_dim),  # length_max_discrete = dimensionality
+            float(state.target_dim),
         )
         state.length_continuous = min(
             state.length_continuous / adjustment_factor,
@@ -348,6 +263,54 @@ def embedding_matrix(
 
     # Cut off index zero as this corresponds to zero padding
     return mtrx[:, 1:]
+
+
+def project_up(
+    X_target_01: Float[torch.Tensor, "N target_dim"],
+    S: Float[torch.Tensor, "target_dim input_dim"],
+) -> Float[torch.Tensor, "N input_dim"]:
+    """Project low-dim points up to the full input space via the embedding ``S``.
+
+    The projection is performed in the ``[-1, 1]`` space where ``S`` is defined: input
+    points are first rescaled from ``[0, 1]^target_dim`` to ``[-1, 1]^target_dim``,
+    multiplied by ``S``, then rescaled back to ``[0, 1]^input_dim``.
+
+    Args:
+        X_target_01: A batch of points in ``[0, 1]^target_dim``.
+        S: The count-sketch embedding matrix.
+
+    Returns:
+        A tensor of projected points in ``[0, 1]^input_dim``.
+    """
+    X_target = (2.0 * X_target_01) - 1.0
+    X_full = X_target @ S
+    return (X_full + 1.0) / 2.0
+
+
+def project_down(
+    X_full_01: Float[torch.Tensor, "N input_dim"],
+    S: Float[torch.Tensor, "target_dim input_dim"],
+) -> Float[torch.Tensor, "N target_dim"]:
+    """Project full-dim points down to the target subspace via least-squares.
+
+    Inverse of :func:`project_up`. Points are rescaled to ``[-1, 1]^input_dim``,
+    solved against ``S.T`` in the least-squares sense, and rescaled back to
+    ``[0, 1]^target_dim``. Recovery is exact (up to floating-point noise) when the
+    input originated from ``project_up`` because ``S`` has full row rank; for
+    arbitrary full-dim inputs, ``lstsq`` silently returns a min-norm pseudo-inverse
+    solution rather than an exact recovery.
+
+    Args:
+        X_full_01: A batch of points in ``[0, 1]^input_dim``,
+            assumed to have originated from :func:`project_up` with the same ``S``.
+        S: The count-sketch embedding matrix.
+
+    Returns:
+        A tensor of projected points in ``[0, 1]^target_dim``.
+    """
+    X_full = (2.0 * X_full_01) - 1.0
+    X_target = torch.linalg.lstsq(S.t(), X_full.t()).solution.t()
+    return (X_target + 1.0) / 2.0
 
 
 def increase_embedding_and_observations(

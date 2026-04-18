@@ -11,7 +11,6 @@ from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
 from botorch.optim import optimize_acqf
 from botorch.sampling import SobolQMCNormalSampler
-from botorch.utils.transforms import normalize, unnormalize
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import ExactMarginalLogLikelihood
@@ -25,10 +24,13 @@ from bo_arena.agents.baxus_bounce_utils import (
     compute_adjustment_factor,
     embedding_matrix,
     increase_embedding_and_observations,
-    update_bounce_state,
+    project_down,
+    project_up,
+    update_bounce_trust_region_state,
 )
 from bo_arena.utils.acqf_opt import get_opt_kwargs
 from bo_arena.utils.dataset import Dataset
+from bo_arena.utils.miscellaneous import generate_seed
 
 
 class Bounce(AskTellAgent):
@@ -38,7 +40,7 @@ class Bounce(AskTellAgent):
     "Bounce: Reliable High-Dimensional Bayesian Optimization for Combinatorial and
     Mixed Spaces" by Papenmeier et al. (2023). Bounce starts optimization in a
     low-dimensional random subspace and adaptively expands the embedding until the
-    full input dimensionality is reached, at which point the trust region resets.
+    full input dimensionality is reached.
 
     Reference:
         Papenmeier, L., Nardi, L., Poloczek, M. (2023). Bounce: Reliable
@@ -49,16 +51,18 @@ class Bounce(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
+        n_total_evaluations: int,
         acqf_opt_strategy: str = "default",
         use_dsp: bool = False,  # noqa: FBT002
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401, ARG002
     ) -> None:
         """Initialize the Bounce agent.
 
         Args:
             input_dim: Dimensionality of the input space (assumed [0,1]^d).
+            n_total_evaluations: Total evaluation budget.
             acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
               "default", "no_raasp", or "botorch_raasp". Setting "default" preserves
               the original Bounce optimizer settings (raw_samples=512, num_restarts=10).
@@ -67,17 +71,16 @@ class Bounce(AskTellAgent):
               priors used in the original Bounce paper.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
-            kwargs: Additional arguments. 'n_total_evaluations' (int) is required.
+            kwargs: Additional arguments (ignored).
 
         Raises:
             ValueError: If an unknown acqf_opt_strategy is given.
-
         """
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
         self.use_dsp = use_dsp
-        self.n_total_evaluations: int | None = kwargs.get("n_total_evaluations")
+        self.n_total_evaluations = n_total_evaluations
         if self.n_total_evaluations is None:
             msg = (
                 "n_total_evaluations is required for Bounce. "
@@ -103,22 +106,16 @@ class Bounce(AskTellAgent):
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
         self.model: SingleTaskGP | None = None
         self.state: BounceState | None = None
-        self._n_evals: int = 0  # total evaluations including initial data
         self._restart_buffer = torch.empty(
             0, self.input_dim, dtype=dtype, device=device
         )
 
-        # Projection matrix
-        self.S: Float[torch.Tensor, "target_dim input_dim"] | None = None
-
-        # Coordinate conventions used throughout this class:
+        # Projection matrix. Coordinate conventions throughout this class:
         #   Arena / external   : [0, 1]^input_dim
-        #   Full-dim internal  : [-1, 1]^input_dim  (self.bounds below)
         #   Subspace / train_X : [0, 1]^target_dim  (GP is trained in this space)
-        self.bounds = torch.stack([
-            -torch.ones(self.input_dim, dtype=self.dtype, device=self.device),
-            torch.ones(self.input_dim, dtype=self.dtype, device=self.device),
-        ])
+        # Conversion between the two goes via [-1, 1] where S is defined; see
+        # project_up / project_down in baxus_bounce_utils.
+        self.S: Float[torch.Tensor, "target_dim input_dim"] | None = None
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""
@@ -126,16 +123,8 @@ class Bounce(AskTellAgent):
 
     @property
     def default_n_initial_points(self) -> int:
-        """Bounce always requires exactly 5 initial points."""
+        """Paper default for Bounce."""
         return 5
-
-    def _create_state(self, n_initial_points: int) -> BounceState:
-        """Create a new BounceState."""
-        return BounceState(
-            input_dim=self.input_dim,
-            n_initial_points=n_initial_points,
-            eval_budget=self.n_total_evaluations,
-        )
 
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model in the low-dimensional subspace.
@@ -201,7 +190,9 @@ class Bounce(AskTellAgent):
         Returns:
             A tuple of (tr_lb, tr_ub) tensors in [0,1]^target_dim.
         """
+        # Scale the TR to be proportional to the lengthscales
         if self.use_dsp:
+            # With DSP enabled, there is no ScaleKernel wrapping the base kernel
             lengthscale = self.model.covar_module.lengthscale
         else:
             lengthscale = self.model.covar_module.base_kernel.lengthscale
@@ -210,8 +201,10 @@ class Bounce(AskTellAgent):
             weights = weights / weights.mean()
             weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
 
-        tr_lb = torch.clamp(center - length * weights / 2, 0.0, 1.0)
-        tr_ub = torch.clamp(center + length * weights / 2, 0.0, 1.0)
+        # Create trust region bounds in [0,1]^d space with lengthscale scaling
+        tr_lb = torch.clamp(center - weights * length / 2.0, 0.0, 1.0)
+        tr_ub = torch.clamp(center + weights * length / 2.0, 0.0, 1.0)
+
         return tr_lb, tr_ub
 
     def generate_initial_points(self, n: int, seed: int) -> Float[np.ndarray, "N D"]:
@@ -228,8 +221,15 @@ class Bounce(AskTellAgent):
             Initial points in [0,1]^d for the Arena to evaluate.
         """
         # Initialize state and embedding matrix early
-        self.state = self._create_state(n_initial_points=n)
-        generator = torch.Generator(device=self.device).manual_seed(seed)
+        self.state = BounceState(
+            input_dim=self.input_dim,
+            n_initial_points=n,
+            eval_budget=self.n_total_evaluations,
+        )
+        embedding_ss, sobol_ss = np.random.SeedSequence(seed).spawn(2)
+        generator = torch.Generator(device=self.device).manual_seed(
+            generate_seed(embedding_ss)
+        )
         self.S = embedding_matrix(
             self.state.input_dim,
             self.state.d_init,
@@ -238,17 +238,14 @@ class Bounce(AskTellAgent):
             device=self.device,
         )
 
-        # Generate Sobol points in [-1,1]^target_dim
-        sobol = SobolEngine(self.state.target_dim, scramble=True, seed=seed)
-        X_target = 2 * sobol.draw(n).to(dtype=self.dtype, device=self.device) - 1
+        # Generate Sobol points in [0,1]^target_dim and project up to [0,1]^input_dim
+        sobol = SobolEngine(
+            self.state.target_dim, scramble=True, seed=generate_seed(sobol_ss)
+        )
+        X_target = sobol.draw(n).to(dtype=self.dtype, device=self.device)
+        X_full_01 = project_up(X_target, self.S)
 
-        # Project X to full-dimensional input space, i.e. [-1,1]^d
-        X_full = X_target @ self.S
-
-        # BO-Arena assumes input space is [0,1]^d
-        X_normalized = normalize(X=X_full, bounds=self.bounds)
-
-        return X_normalized.detach().cpu().numpy()
+        return X_full_01.detach().cpu().numpy()
 
     def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
         """Provide initial observations to the agent and fit the SingleTaskGP model.
@@ -268,21 +265,14 @@ class Bounce(AskTellAgent):
             )
             raise RuntimeError(msg)
 
-        # Unnormalize from [0,1]^d (Arena) to [-1,1]^d (internal full-dim space)
-        X_normalized = torch.tensor(data.X, dtype=self.dtype, device=self.device)
-        X_unnormalized = unnormalize(X=X_normalized, bounds=self.bounds)
-
-        # Project X to low-dimensional subspace
-        self.train_X = torch.linalg.lstsq(self.S.t(), X_unnormalized.t()).solution.t()
-
-        # Scale from [-1,1]^target_dim to [0,1]^target_dim
-        self.train_X = (self.train_X + 1.0) / 2.0
+        X_full_01 = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        self.train_X = project_down(X_full_01, self.S)
         self.train_y = torch.tensor(
             data.y, dtype=self.dtype, device=self.device
         ).unsqueeze(-1)
 
         self.n_init = self.train_X.shape[0]  # Used for Bounce restarts
-        self._n_evals = self.train_X.shape[0]
+        self.state.n_evals = self.train_X.shape[0]
 
         self._fit_model()
 
@@ -307,15 +297,8 @@ class Bounce(AskTellAgent):
             msg = "Bounce state has not been initialized. Call tell_initial_data first."
             raise RuntimeError(msg)
 
-        # Unnormalize from [0,1]^d (Arena) to [-1,1]^d (internal full-dim space)
-        X_normalized = torch.tensor(data.X, dtype=self.dtype, device=self.device)
-        X_unnormalized = unnormalize(X=X_normalized, bounds=self.bounds)
-
-        # Project X to low-dimensional subspace
-        new_X = torch.linalg.lstsq(self.S.t(), X_unnormalized.t()).solution.t()
-
-        # Scale from [-1,1]^target_dim to [0,1]^target_dim
-        new_X = (new_X + 1.0) / 2.0
+        X_full_01 = torch.tensor(data.X, dtype=self.dtype, device=self.device)
+        new_X = project_down(X_full_01, self.S)
         new_y = torch.tensor(data.y, dtype=self.dtype, device=self.device).unsqueeze(-1)
 
         batch_size = new_X.shape[0]
@@ -324,8 +307,10 @@ class Bounce(AskTellAgent):
         if self.model is not None:
             y_best_prev = float(self.train_y.max().item())
 
-            factor = compute_adjustment_factor(self.state, self._n_evals, batch_size)
-            self.state = update_bounce_state(self.state, new_y, y_best_prev, factor)
+            factor = compute_adjustment_factor(self.state, batch_size)
+            self.state = update_bounce_trust_region_state(
+                self.state, new_y, y_best_prev, factor
+            )
 
             # Update per-tier budget tracking
             tr_dim = self.state.target_dim
@@ -335,7 +320,7 @@ class Bounce(AskTellAgent):
 
         self.train_X = torch.cat((self.train_X, new_X), dim=0)
         self.train_y = torch.cat([self.train_y, new_y])
-        self._n_evals += batch_size
+        self.state.n_evals += batch_size
 
         if self.state.terminated:
             if self.state.target_dim < self.state.input_dim:
@@ -365,7 +350,10 @@ class Bounce(AskTellAgent):
                 self.state.split_budgets[self.state.target_dim] = (
                     self.state.split_budget_for(self.state.target_dim)
                 )
-                generator = torch.Generator(device=self.device).manual_seed(seed)
+                embedding_ss, sobol_ss = np.random.SeedSequence(seed).spawn(2)
+                generator = torch.Generator(device=self.device).manual_seed(
+                    generate_seed(embedding_ss)
+                )
                 self.S = embedding_matrix(
                     input_dim=self.state.input_dim,
                     target_dim=self.state.input_dim,
@@ -381,18 +369,16 @@ class Bounce(AskTellAgent):
                 self.train_y = torch.empty(0, 1, dtype=self.dtype, device=self.device)
                 self.model = None
 
-                # Generate Sobol points in [-1,1]^target_dim
-                sobol = SobolEngine(self.state.target_dim, scramble=True, seed=seed)
-                X_target = (
-                    2 * sobol.draw(self.n_init).to(dtype=self.dtype, device=self.device)
-                    - 1
+                # Re-seed the restart buffer with fresh Sobol points in [0,1]^d
+                sobol = SobolEngine(
+                    self.state.target_dim,
+                    scramble=True,
+                    seed=generate_seed(sobol_ss),
                 )
-
-                # Project X to full-dimensional input space, i.e. [-1,1]^d
-                X_full = X_target @ self.S
-
-                # BO-Arena assumes input space is [0,1]^d
-                self._restart_buffer = normalize(X=X_full, bounds=self.bounds)
+                X_target = sobol.draw(self.n_init).to(
+                    dtype=self.dtype, device=self.device
+                )
+                self._restart_buffer = project_up(X_target, self.S)
 
             else:
                 msg = (
@@ -478,12 +464,5 @@ class Bounce(AskTellAgent):
                     cand_list.append(x_new)
                 candidates = torch.cat(cand_list, dim=0)
 
-        # Scale from [0,1]^target_dim back to [-1,1]^target_dim
-        candidates = candidates * 2.0 - 1.0
-
-        # Project X to full-dimensional input space, i.e. [-1,1]^d
-        X_next = candidates @ self.S
-
-        # BO-Arena assumes input space is [0,1]^d
-        X_next_normalized = normalize(X=X_next, bounds=self.bounds)
-        return X_next_normalized.detach().cpu().numpy()
+        X_next_01 = project_up(candidates, self.S)
+        return X_next_01.detach().cpu().numpy()
