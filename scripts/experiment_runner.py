@@ -15,6 +15,7 @@ import torch
 import wandb
 
 from bo_arena.agents import AGENTS
+from bo_arena.agents.bounce import Bounce
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
 from bo_arena.experiment_seeds import EXPERIMENT_SEEDS
@@ -154,6 +155,9 @@ def main() -> None:  # noqa: PLR0915
         device=args.device,
         dtype=dtype,
     )
+    if isinstance(agent, Bounce) and n_init != 5:
+        msg = "Bounce agent expected to be run with 5 initial points."
+        raise ValueError(msg)
 
     # Build experiment directory and file paths
     # Structure: results/{benchmark}/{agent}/acqf_opt_{strategy}/[batch_{N}/]

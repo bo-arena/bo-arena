@@ -121,11 +121,6 @@ class Bounce(AskTellAgent):
         """Return a string representation of the agent."""
         return "bounce_dsp" if self.use_dsp else "bounce"
 
-    @property
-    def default_n_initial_points(self) -> int:
-        """Paper default for Bounce."""
-        return 5
-
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model in the low-dimensional subspace.
 
