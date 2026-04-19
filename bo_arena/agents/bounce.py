@@ -8,6 +8,7 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
+from botorch import gen_candidates_scipy
 from botorch.acquisition import (
     ExpectedImprovement,
     LogExpectedImprovement,
@@ -27,7 +28,7 @@ from jaxtyping import Float
 from torch.quasirandom import SobolEngine
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
-from bo_arena.utils.acqf_opt import get_opt_kwargs
+from bo_arena.utils.acqf_opt import get_candidates
 from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import generate_seed
 
@@ -458,7 +459,7 @@ class Bounce(AskTellAgent):
             input_dim: Dimensionality of the input space (assumed [0,1]^d).
             n_total_evaluations: Total evaluation budget.
             acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
-              "default", "no_raasp", or "botorch_raasp". Setting "default" preserves
+              "default", "no_raasp", or "raasp". Setting "default" preserves
               the original Bounce optimizer settings (raw_samples=512, num_restarts=10).
             use_dsp: If True, use BoTorch's default SingleTaskGP (Hvarfner's
               Dimensionality-Scaled Prior) instead of the Matern-2.5 + ARD + Gamma
@@ -485,19 +486,13 @@ class Bounce(AskTellAgent):
                 "Pass it as a keyword argument to the constructor."
             )
             raise RuntimeError(msg)
-
-        if acqf_opt_strategy == "default":
-            self.opt_kwargs = {
-                "raw_samples": 512,
-                "num_restarts": 10,
-                "options": {
-                    "batch_limit": 64,
-                },
-            }
-        elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
-            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
+        if acqf_opt_strategy in {"default", "no_raasp", "raasp"}:
+            self.acqf_opt_strategy = acqf_opt_strategy
         else:
-            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
+            msg = (
+                f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}. "
+                "Note that the bounce agent doesn't support botorch_raasp."
+            )
             raise ValueError(msg)
 
         self.train_X: torch.Tensor | None = None  # stored in [0, 1]^target_dim
@@ -790,10 +785,10 @@ class Bounce(AskTellAgent):
             self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
-        """Select candidate points via (q)EI optimization in the trust region.
+        """Select candidate points via (log)(q)EI optimization in the trust region.
 
-        Optimizes Expected Improvement or q-EI over the trust region in the
-        low-dimensional subspace, then projects candidates back to the full space.
+        Optimizes (log)(q)EI over the trust region in the low-dimensional subspace,
+        then projects candidates back to the full space.
 
         Args:
             n: Number of points to select (used for batch BO).
@@ -828,7 +823,7 @@ class Bounce(AskTellAgent):
         )
         bounds = torch.stack([tr_lb, tr_ub], dim=0)
 
-        # Optimize (q)EI over the trust region
+        # Optimize (log)(q)EI over the trust region
         best_f = float(self.train_y.max().item())
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
@@ -836,13 +831,75 @@ class Bounce(AskTellAgent):
                     LogExpectedImprovement if self.use_log_ei else ExpectedImprovement
                 )
                 acqf = acqfn_class(model=self.model, best_f=best_f)
-                candidates, _ = optimize_acqf(
-                    acq_function=acqf,
-                    bounds=bounds,
-                    q=1,
-                    **self.opt_kwargs,
-                )
+                if self.acqf_opt_strategy == "default":
+                    candidates, _ = optimize_acqf(
+                        acq_function=acqf,
+                        bounds=bounds,
+                        q=1,
+                        raw_samples=512,
+                        num_restarts=10,
+                        options={"batch_limit": 64},
+                    )
+                elif self.acqf_opt_strategy == "no_raasp":
+                    candidates, _ = optimize_acqf(
+                        acq_function=acqf,
+                        bounds=bounds,
+                        q=1,
+                        gen_candidates=gen_candidates_scipy,
+                        raw_samples=5000,
+                        num_restarts=5,
+                        retry_on_optimization_warning=False,
+                        options={"batch_limit": 64},
+                    )
+                elif self.acqf_opt_strategy == "raasp":
+                    # Perform RAASP initialisation ourself due to issues with
+                    # sample_around_best=True and trust regions in the current BoTorch
+                    # implementation.
+                    X_cand = get_candidates(
+                        n_candidates=5000,
+                        lb=tr_lb,
+                        ub=tr_ub,
+                        best_x=x_center,
+                        seed=seed,
+                        method="raasp",
+                        dtype=self.dtype,
+                        device=self.device,
+                    )
+
+                    # Score all candidates and keep the top 5 as initial
+                    # points for the gradient-based optimizer.
+                    with torch.no_grad():
+                        acq_vals = torch.cat([
+                            acqf(batch.unsqueeze(1)) for batch in X_cand.split(64)
+                        ])
+                    top_idx = acq_vals.topk(5).indices
+                    X_init = X_cand[top_idx].unsqueeze(1)
+
+                    tr_bounds = torch.stack([tr_lb, tr_ub], dim=0)
+                    candidates, _ = optimize_acqf(
+                        acq_function=acqf,
+                        bounds=tr_bounds,
+                        q=1,
+                        gen_candidates=gen_candidates_scipy,
+                        batch_initial_conditions=X_init,
+                        num_restarts=5,
+                        retry_on_optimization_warning=False,
+                        options={
+                            "batch_limit": 64,
+                        },
+                    )
+                else:
+                    msg = f"Unknown acqf_opt_strategy: {self.acqf_opt_strategy!r}"
+                    raise ValueError(msg)
+
             else:
+                if self.acqf_opt_strategy != "default":
+                    msg = (
+                        "The 'default' acqf_opt_strategy must be used for batch "
+                        "optimization. "
+                        f"Received: {self.acqf_opt_strategy!r}"
+                    )
+                    raise ValueError(msg)
                 # Sequential greedy with X_pending
                 sampler = SobolQMCNormalSampler(
                     sample_shape=torch.Size([1024]), seed=seed
@@ -865,7 +922,9 @@ class Bounce(AskTellAgent):
                         acq_function=acqf,
                         bounds=bounds,
                         q=1,
-                        **self.opt_kwargs,
+                        raw_samples=512,
+                        num_restarts=10,
+                        options={"batch_limit": 64},
                     )
                     cand_list.append(x_new)
                 candidates = torch.cat(cand_list, dim=0)
