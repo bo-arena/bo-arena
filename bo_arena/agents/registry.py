@@ -11,7 +11,9 @@ from .vanilla_bo import BestWindowVanillaBO, VanillaBO, VanillaBOYu2026, WindowV
 
 AGENTS = {
     "bounce": Bounce,
+    "bounce_log_ei": partial(Bounce, use_log_ei=True),
     "bounce_dsp": partial(Bounce, use_dsp=True),
+    "bounce_log_ei_dsp": partial(Bounce, use_log_ei=True, use_dsp=True),
     "linear_bo": LinearBO,
     "random": Random,
     "saasbo": SAASBO,

@@ -8,7 +8,12 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
-from botorch.acquisition import ExpectedImprovement, qExpectedImprovement
+from botorch.acquisition import (
+    ExpectedImprovement,
+    LogExpectedImprovement,
+    qExpectedImprovement,
+    qLogExpectedImprovement,
+)
 from botorch.exceptions import ModelFittingError
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
@@ -442,6 +447,7 @@ class Bounce(AskTellAgent):
         n_total_evaluations: int,
         acqf_opt_strategy: str = "default",
         use_dsp: bool = False,  # noqa: FBT002
+        use_log_ei: bool = False,  # noqa: FBT002
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         **kwargs: Any,  # noqa: ANN401, ARG002
@@ -457,6 +463,9 @@ class Bounce(AskTellAgent):
             use_dsp: If True, use BoTorch's default SingleTaskGP (Hvarfner's
               Dimensionality-Scaled Prior) instead of the Matern-2.5 + ARD + Gamma
               priors used in the original Bounce paper.
+            use_log_ei: If True, use LogEI (or qLogEI if batch size > 1) instead of
+              standard EI for improved numerical stability. Note that the original
+              paper used standard EI, so the default is False to preserve that behavior.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             kwargs: Additional arguments (ignored).
@@ -468,6 +477,7 @@ class Bounce(AskTellAgent):
         self.device = device
         self.input_dim = input_dim
         self.use_dsp = use_dsp
+        self.use_log_ei = use_log_ei
         self.n_total_evaluations = n_total_evaluations
         if self.n_total_evaluations is None:
             msg = (
@@ -507,7 +517,12 @@ class Bounce(AskTellAgent):
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""
-        return "bounce_dsp" if self.use_dsp else "bounce"
+        base_str = "bounce"
+        if self.use_log_ei:
+            base_str += "_log_ei"
+        if self.use_dsp:
+            base_str += "_dsp"
+        return base_str
 
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model in the low-dimensional subspace.
@@ -817,7 +832,10 @@ class Bounce(AskTellAgent):
         best_f = float(self.train_y.max().item())
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
-                acqf = ExpectedImprovement(model=self.model, best_f=best_f)
+                acqfn_class = (
+                    LogExpectedImprovement if self.use_log_ei else ExpectedImprovement
+                )
+                acqf = acqfn_class(model=self.model, best_f=best_f)
                 candidates, _ = optimize_acqf(
                     acq_function=acqf,
                     bounds=bounds,
@@ -832,7 +850,12 @@ class Bounce(AskTellAgent):
                 cand_list: list[torch.Tensor] = []
                 for _ in range(n):
                     x_pending = torch.cat(cand_list, dim=0) if cand_list else None
-                    acqf = qExpectedImprovement(
+                    acqfn_class = (
+                        qLogExpectedImprovement
+                        if self.use_log_ei
+                        else qExpectedImprovement
+                    )
+                    acqf = acqfn_class(
                         model=self.model,
                         best_f=best_f,
                         sampler=sampler,
