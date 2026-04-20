@@ -6,6 +6,7 @@ import logging
 import torch
 
 from bo_arena.agents import AGENTS
+from bo_arena.agents.bounce import Bounce
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
 
@@ -120,6 +121,9 @@ def main() -> None:
         device=args.device,
         dtype=dtype,
     )
+    if isinstance(agent, Bounce) and n_init != 5:
+        msg = "Bounce agent expected to be run with 5 initial points."
+        raise ValueError(msg)
 
     # Run Arena
     bo_arena = Arena(

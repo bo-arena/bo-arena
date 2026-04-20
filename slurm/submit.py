@@ -213,6 +213,7 @@ def build_sbatch_cmd(
     config: dict[str, str],
     batch_size: int | None = None,
     n_evals: int | None = None,
+    n_init: int | None = None,
 ) -> list[str]:
     """Build the sbatch command for a single experiment combination."""
     profile = get_profile(agent, benchmark)
@@ -234,6 +235,8 @@ def build_sbatch_cmd(
         export_parts.append(f"N_EVALS={profile['n_evals']}")
     if batch_size is not None:
         export_parts.append(f"BATCH_SIZE={batch_size}")
+    if n_init is not None:
+        export_parts.append(f"N_INIT={n_init}")
     export_vars = ",".join(export_parts)
 
     cmd = [
@@ -301,6 +304,12 @@ def main() -> None:
         help="Total number of evaluations (overrides agent profile default)",
     )
     parser.add_argument(
+        "--n-init",
+        type=int,
+        default=None,
+        help="Number of initial points (overrides benchmark default)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print sbatch commands without submitting",
@@ -339,6 +348,7 @@ def main() -> None:
             config,
             batch_size=args.batch_size,
             n_evals=args.n_evals,
+            n_init=args.n_init,
         )
         profile = get_profile(agent, benchmark)
         mem = resolve_mem(agent, benchmark)
