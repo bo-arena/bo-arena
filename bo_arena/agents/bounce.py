@@ -708,7 +708,7 @@ class Bounce(AskTellAgent):
             # Update per-tier budget tracking
             tr_dim = self.state.target_dim
             self.state.split_budgets[tr_dim] = (
-                self.state.split_budgets.get(tr_dim, 1) - batch_size
+                self.state.split_budgets[tr_dim] - batch_size
             )
 
         self.train_X = torch.cat((self.train_X, new_X), dim=0)
