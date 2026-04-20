@@ -3,6 +3,7 @@
 from functools import partial
 
 from .bounce import Bounce
+from .historic_bo import HistoricBO
 from .linear import LinearBO
 from .random import Random
 from .saasbo import SAASBO
@@ -14,6 +15,7 @@ AGENTS = {
     "bounce_log_ei": partial(Bounce, use_log_ei=True),
     "bounce_dsp": partial(Bounce, use_dsp=True),
     "bounce_log_ei_dsp": partial(Bounce, use_log_ei=True, use_dsp=True),
+    "historic_bo": HistoricBO,
     "linear_bo": LinearBO,
     "random": Random,
     "saasbo": SAASBO,
