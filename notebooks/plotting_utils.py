@@ -17,8 +17,8 @@ from bo_arena.utils.data_processing import get_all_seed_y_vals, get_cum_max_y_st
 plt.rcParams.update({"figure.dpi": 200})
 
 AGENT_NAME_MAPPING = {
-    "baxus": "BAxUS",
     "best_1_window_100_vanilla_bo": "Vanilla BO (best 1 + window 100)",
+    "bounce": "Bounce",
     "eulbo": "EULBO",
     "linear_bo": "Linear BO",
     "random": "Random",
@@ -37,8 +37,8 @@ _PAULTOL = palettes.paultol_bright
 # (e.g. turbo / turbo_dsp share a color, as do the eulbo / linear_bo / turbo_log_ei
 # group). Double-check the palette before adding a new co-plot combination.
 AGENT_COLOR_MAPPING = {
-    "baxus": f"#{_PAULTOL[3]}",
     "best_1_window_100_vanilla_bo": f"#{_PAULTOL[4]}",
+    "bounce": f"#{_PAULTOL[3]}",
     "eulbo": f"#{_PAULTOL[1]}",
     "linear_bo": f"#{_PAULTOL[1]}",
     "random": "#555555",

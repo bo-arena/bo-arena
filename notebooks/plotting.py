@@ -34,10 +34,11 @@ plot_cum_max_y_custom(
 plot_cum_max_y_custom(
     agents={
         "random": ["default"],
-        "vanilla_bo": ["default"],
         "turbo": ["default"],
-        "linear_bo": ["default"],
         "saasbo": ["default"],
+        "bounce": ["default"],
+        "vanilla_bo": ["default"],
+        "linear_bo": ["default"],
     },
     problems=["rover", "mopta08", "lasso-dna", "svm", "mujoco-ant", "mujoco-humanoid"],
     ncols=3,
