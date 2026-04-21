@@ -14,7 +14,10 @@ from botorch.optim import optimize_acqf
 from gpytorch.constraints import GreaterThan
 from gpytorch.kernels import Kernel
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from gpytorch.models.exact_prediction_strategies import LinearPredictionStrategy
+from gpytorch.models.exact_prediction_strategies import (
+    DefaultPredictionStrategy,
+    LinearPredictionStrategy,
+)
 from gpytorch.priors import LogNormalPrior
 from jaxtyping import Float
 from linear_operator.operators import (
@@ -141,8 +144,19 @@ class SphericalLinearKernel(Kernel):
         train_prior_dist: gpytorch.distributions.MultivariateNormal,
         train_labels: Float[torch.Tensor, " N"],
         likelihood: gpytorch.likelihoods.GaussianLikelihood,
-    ) -> LinearPredictionStrategy:
-        """Use linear prediction strategy for efficient Woodbury-based inference."""
+    ) -> LinearPredictionStrategy | DefaultPredictionStrategy:
+        """Choose prediction strategy based on N vs D.
+
+        LinearPredictionStrategy (D-space Woodbury) is efficient when N > D.
+        DefaultPredictionStrategy (N-space Cholesky) is efficient when D >= N,
+        which is the common case for high-dimensional benchmarks (e.g. mujoco-humanoid).
+        """
+        n = train_inputs[0].shape[-2]
+        d = train_inputs[0].shape[-1] + 2  # +1 stereographic projection, +1 constant
+        if d >= n:
+            return DefaultPredictionStrategy(
+                train_inputs, train_prior_dist, train_labels, likelihood
+            )
         return LinearPredictionStrategy(
             train_inputs, train_prior_dist, train_labels, likelihood
         )
