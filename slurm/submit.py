@@ -90,6 +90,12 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
         "cpus": 4,
         "time": "48:00:00",
     },
+    ("mujoco-humanoid", "turbo_log_ei"): {
+        "device": "cuda",
+        "gres": "gpu:1",
+        "cpus": 4,
+        "time": "48:00:00",
+    },
     ("mujoco-humanoid", "saasbo"): {
         "time": "96:00:00",
     },
