@@ -99,6 +99,9 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
     ("mujoco-humanoid", "saasbo"): {
         "time": "96:00:00",
     },
+    ("mujoco-humanoid", "linear_bo"): {
+        "mem": "24G",
+    },
 }
 
 
