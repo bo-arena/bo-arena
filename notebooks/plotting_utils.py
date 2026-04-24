@@ -76,6 +76,8 @@ STRATEGY_LINESTYLE_MAPPING = {
 }
 
 PROBLEM_NAME_MAPPING = {
+    "bbob-attractivesector": "Attractive Sector (100D)",
+    "bbob-ellipsoidrotated": "Ellipsoid (100D)",
     "bbob-griewankrosenbrock": "Griewank-Rosenbrock (100D)",
     "bbob-rastriginrotated": "Rastrigin (100D)",
     "bbob-schwefel": "Schwefel (100D)",

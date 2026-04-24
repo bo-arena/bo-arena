@@ -89,12 +89,14 @@ plot_cum_max_y_custom(
 plot_cum_max_y_custom(
     agents={
         "random": ["default"],
-        "vanilla_bo": ["default"],
         "turbo": ["default"],
-        "linear_bo": ["default"],
         # "saasbo": ["default"],
+        "bounce": ["default"],
+        "vanilla_bo": ["default"],
+        "linear_bo": ["default"],
     },
     problems=["bbob-griewankrosenbrock", "bbob-rastriginrotated", "bbob-schwefel"],
+    # problems=["bbob-griewankrosenbrock", "bbob-attractivesector", "bbob-ellipsoidrotated"],
     filename="bbob",
 )
 # %%
