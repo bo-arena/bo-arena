@@ -26,7 +26,7 @@ class HistoricBO(AskTellAgent):
     """Historic GP-based BO agent prior to logEI and DSP.
 
     This agent implements a typical GP-based BO approach prior to the introduction of
-    DSP in Hvarfner et al. (2024), and logEI in Ament et al. 2023. In particular, it
+    DSP in Hvarfner et al. (2024), and logEI in Ament et al. (2023). In particular, it
     uses the standard Expected Improvement (EI) acquisition function, and a GP with a
     Matérn-5/2 kernel with a lengthscale prior of Gamma(3, 6) and an outputscale prior
     of Gamma(2, 0.15). It also uses a Gamma(1.1, 0.05) prior on the noise, with a
@@ -39,7 +39,7 @@ class HistoricBO(AskTellAgent):
         (ICML).
         Ament, S., Daulton, S., Eriksson, D., Balandat, M., & Bakshy, E. (2023).
         Unexpected Improvements to Expected Improvement for Bayesian Optimization.
-        Advances in Neural Information Processing Systems, 36, 20577-20612.
+        Neural Information Processing Systems (NeurIPS).
     """
 
     def __init__(
@@ -104,7 +104,8 @@ class HistoricBO(AskTellAgent):
     def _fit_model(self) -> None:
         """Fit a SingleTaskGP model using ExactMarginalLogLikelihood.
 
-        Uses the same hyperpriors as BoTorch < 0.12. These can be found here:https://github.com/meta-pytorch/botorch/blob/v0.11.3/botorch/models/utils/gpytorch_modules.py.
+        Uses the same hyperpriors as BoTorch < 0.12. These can be found here:
+            https://github.com/meta-pytorch/botorch/blob/v0.11.3/botorch/models/utils/gpytorch_modules.py.
         """
         covar_module = ScaleKernel(
             base_kernel=MaternKernel(
@@ -121,7 +122,9 @@ class HistoricBO(AskTellAgent):
             noise_constraint=GreaterThan(
                 1e-4, transform=None, initial_value=noise_prior_mode
             ),
-        )  # transform=None is deliberate, and was present in BoTorch <= 0.12 e.g. https://github.com/meta-pytorch/botorch/blob/v0.11.3/botorch/models/utils/gpytorch_modules.py#L52
+            # transform=None is deliberate, and was present in BoTorch <= 0.12:
+            # https://github.com/meta-pytorch/botorch/blob/v0.11.3/botorch/models/utils/gpytorch_modules.py#L52
+        )
         self.model = SingleTaskGP(
             self.train_X,
             self.train_y,
