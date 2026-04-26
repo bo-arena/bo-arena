@@ -73,8 +73,6 @@ class HistoricBO(AskTellAgent):
                 "num_restarts": 4,
                 "retry_on_optimization_warning": False,
                 "options": {
-                    "sample_around_best": True,
-                    "sample_around_best_sigma": 0.1,
                     "maxiter": 300,
                     "batch_limit": 64,
                 },
