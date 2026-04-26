@@ -134,7 +134,7 @@ class VanillaBO(AskTellAgent):
         """Select the next points to evaluate using Log Expected Improvement (LogEI).
 
         This method optimizes the LogEI (or qLogEI for batch size > 1) acquisition
-        function using `sample_around_best=True` for better candidate generation.
+        function.
 
         Args:
             n: Number of points to select (used for batch BO).
