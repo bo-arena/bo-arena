@@ -20,6 +20,7 @@ AGENT_NAME_MAPPING = {
     "best_1_window_100_vanilla_bo": "Vanilla BO (best 1 + window 100)",
     "bounce": "Bounce",
     "eulbo": "EULBO",
+    "historic_bo": "BoTorch v0.11.3 (2024)",
     "linear_bo": "Linear BO",
     "random": "Random",
     "saasbo": "SAASBO",
@@ -28,7 +29,7 @@ AGENT_NAME_MAPPING = {
     "turbo_log_ei": "TuRBO (LogEI)",
     "turbo_log_ei_dsp": "TuRBO (LogEI + DSP)",
     "vanilla_bo": "Vanilla BO",
-    "vanilla_bo_yu_2026": "Vanilla BO (Yu et al., 2026)",
+    "vanilla_bo_yu_2026": "``Vanilla BO'' (Yu et al., 2026)",
     "window_100_vanilla_bo": "Vanilla BO (window 100)",
 }
 
@@ -40,6 +41,7 @@ AGENT_COLOR_MAPPING = {
     "best_1_window_100_vanilla_bo": f"#{_PAULTOL[4]}",
     "bounce": f"#{_PAULTOL[3]}",
     "eulbo": f"#{_PAULTOL[1]}",
+    "historic_bo": f"#{_PAULTOL[2]}",
     "linear_bo": f"#{_PAULTOL[1]}",
     "random": "#555555",
     "saasbo": f"#{_PAULTOL[5]}",

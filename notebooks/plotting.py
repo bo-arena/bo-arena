@@ -19,6 +19,7 @@ from plotting_utils import plot_cum_max_y_custom
 plot_cum_max_y_custom(
     agents={
         "random": ["default"],
+        "historic_bo": ["default"],
         "vanilla_bo": ["default"],
         "vanilla_bo_yu_2026": ["default"],
     },
