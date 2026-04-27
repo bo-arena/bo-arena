@@ -11,7 +11,7 @@ from botorch.optim import optimize_acqf
 from jaxtyping import Float
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
-from bo_arena.utils.acqf_opt import get_opt_kwargs
+from bo_arena.utils.acqf_opt import get_log_ei_opt_kwargs
 from bo_arena.utils.dataset import Dataset
 
 
@@ -68,7 +68,7 @@ class SAASBO(AskTellAgent):
                 },
             }
         elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
-            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
+            self.opt_kwargs = get_log_ei_opt_kwargs(acqf_opt_strategy)
         else:
             msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
             raise ValueError(msg)

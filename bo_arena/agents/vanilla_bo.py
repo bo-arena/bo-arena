@@ -16,7 +16,7 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from jaxtyping import Float
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
-from bo_arena.utils.acqf_opt import get_opt_kwargs
+from bo_arena.utils.acqf_opt import get_log_ei_opt_kwargs
 from bo_arena.utils.dataset import Dataset
 
 
@@ -72,7 +72,7 @@ class VanillaBO(AskTellAgent):
                 },
             }
         elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
-            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
+            self.opt_kwargs = get_log_ei_opt_kwargs(acqf_opt_strategy)
         else:
             msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
             raise ValueError(msg)
@@ -222,10 +222,12 @@ class VanillaBOYu2026(AskTellAgent):
                 "raw_samples": 3,
                 "num_restarts": 1,
             }
-        elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
-            self.opt_kwargs = get_opt_kwargs(acqf_opt_strategy)
         else:
-            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
+            msg = (
+                f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}. "
+                "Note that this agent only supports 'default' settings, "
+                "which match the implementation used by Yu et al. (2026)."
+            )
             raise ValueError(msg)
 
         self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)

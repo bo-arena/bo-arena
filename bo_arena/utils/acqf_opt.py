@@ -8,8 +8,11 @@ from torch.quasirandom import SobolEngine
 from bo_arena.utils.miscellaneous import generate_seed
 
 
-def get_opt_kwargs(strategy: str) -> dict:
+def get_log_ei_opt_kwargs(strategy: str) -> dict:
     """Return optimize_acqf keyword arguments for the given strategy name.
+
+    Note that these settings are used by agents which use the logEI acquisition
+    function (hence `nonnegative=False`).
 
     Args:
         strategy: One of "no_raasp", or "botorch_raasp".
@@ -24,7 +27,10 @@ def get_opt_kwargs(strategy: str) -> dict:
         "no_raasp": {
             "raw_samples": 5000,
             "num_restarts": 5,
+            "retry_on_optimization_warning": False,
             "options": {
+                "nonnegative": False,
+                "maxiter": 300,
                 "batch_limit": 64,
             },
         },
