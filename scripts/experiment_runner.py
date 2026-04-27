@@ -18,6 +18,7 @@ from bo_arena.agents import AGENTS
 from bo_arena.agents.bounce import Bounce
 from bo_arena.arena import Arena
 from bo_arena.benchmarks import BencherBenchmark
+from bo_arena.benchmarks.synthetic_benchmarks import Ackley, Michalewicz, StyblinskiTang
 from bo_arena.experiment_seeds import EXPERIMENT_SEEDS
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -128,9 +129,16 @@ def main() -> None:  # noqa: PLR0915
     seed = EXPERIMENT_SEEDS[args.seed_idx]
 
     # Initialize Benchmark and Agent
-    benchmark = BencherBenchmark(
-        name=args.benchmark, address=args.address, port=args.port
-    )
+    if args.benchmark == "ackley_dim_100":
+        benchmark = Ackley(dim=100)
+    elif args.benchmark == "michalewicz_dim_100":
+        benchmark = Michalewicz(dim=100)
+    elif args.benchmark == "styblinski_tang_dim_100":
+        benchmark = StyblinskiTang(dim=100)
+    else:
+        benchmark = BencherBenchmark(
+            name=args.benchmark, address=args.address, port=args.port
+        )
     metadata = benchmark.metadata
     input_dim = metadata.input_dim
 
