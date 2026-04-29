@@ -35,17 +35,31 @@ if [ "$DEVICE" = "cuda" ]; then
     NV_FLAG="--nv"
 fi
 
-# Start bencher as a background sidecar
-singularity run images/bencher.sif &
-BENCHER_PID=$!
-trap "kill $BENCHER_PID" EXIT TERM
+# Synthetic benchmarks are evaluated in-process and don't need the Bencher server.
+case "$BENCHMARK" in
+    ackley_*|michalewicz_*|styblinski_tang_*)
+        IS_SYNTHETIC=1
+        ;;
+    *)
+        IS_SYNTHETIC=0
+        ;;
+esac
 
-# Wait for Bencher services to be ready
-echo "Starting up bencher server"
-for port in 50051 50053 50054 50055 50056 50057 50058 50059 50060; do
-    until nc -z 127.0.0.1 $port; do sleep 1; done
-done
-echo "Bencher server started"
+if [ "$IS_SYNTHETIC" -eq 0 ]; then
+    # Start bencher as a background sidecar
+    singularity run images/bencher.sif &
+    BENCHER_PID=$!
+    trap "kill $BENCHER_PID" EXIT TERM
+
+    # Wait for Bencher services to be ready
+    echo "Starting up bencher server"
+    for port in 50051 50053 50054 50055 50056 50057 50058 50059 50060; do
+        until nc -z 127.0.0.1 $port; do sleep 1; done
+    done
+    echo "Bencher server started"
+else
+    echo "Synthetic benchmark '$BENCHMARK' — skipping Bencher server startup"
+fi
 
 # Run the experiment (SLURM_ARRAY_TASK_ID indexes into EXPERIMENT_SEEDS)
 echo "Running: benchmark=$BENCHMARK, agent=$AGENT, acqf_opt_strategy=$ACQF_OPT_STRATEGY, device=$DEVICE, seed_idx=$SLURM_ARRAY_TASK_ID"

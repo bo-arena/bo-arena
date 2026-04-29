@@ -164,4 +164,34 @@ SYNTHETIC_BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             upper_bounds=np.ones(300),
         ),
     ),
+    "ackley_dim_100": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "michalewicz_dim_100": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
+    "styblinski_tang_dim_100": BenchmarkMetadata(
+        input_dim=100,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=1000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(100),
+            upper_bounds=np.ones(100),
+        ),
+    ),
 }

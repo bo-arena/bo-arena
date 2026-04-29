@@ -1,6 +1,10 @@
 """Synthetic benchmarks."""
 
 import numpy as np
+import torch
+from botorch.test_functions.synthetic import Ackley as BotorchAckley
+from botorch.test_functions.synthetic import Michalewicz as BotorchMichalewicz
+from botorch.test_functions.synthetic import StyblinskiTang as BotorchStyblinskiTang
 from jaxtyping import Float
 
 from bo_arena.benchmarks import Benchmark
@@ -84,3 +88,139 @@ class Hartmann6D(Benchmark):
             Function values.
         """
         return _hartmann6d(points[:, :6])
+
+
+class Ackley(Benchmark):
+    """Ackley function (negated for maximisation).
+
+    Wraps BoTorch's :class:`botorch.test_functions.synthetic.Ackley`. Inputs are
+    expected in the [0, 1] hypercube and are scaled internally to the standard
+    Ackley domain of [-32.768, 32.768] per dimension. The function is negated
+    so that it is a maximisation problem (following the Arena convention); the
+    global maximum is 0 at the centre of the unit hypercube.
+
+    Args:
+        dim: Input dimensionality.
+
+    Raises:
+        ValueError: If metadata is not found for the benchmark.
+    """
+
+    def __init__(self, dim: int, metadata: BenchmarkMetadata | None = None) -> None:
+        name = f"ackley_dim_{dim}"
+        if metadata is None:
+            metadata = SYNTHETIC_BENCHMARK_METADATA.get(name)
+            if metadata is None:
+                msg = f"Metadata not found for benchmark '{name}'."
+                raise ValueError(msg)
+
+        super().__init__(name=name, metadata=metadata)
+        self._botorch_ackley = BotorchAckley(dim=dim, negate=True)
+        self._lower = self._botorch_ackley.bounds[0].numpy()
+        self._upper = self._botorch_ackley.bounds[1].numpy()
+
+    def evaluate_points(
+        self, points: Float[np.ndarray, "N D"]
+    ) -> Float[np.ndarray, " N"]:
+        """Evaluate the Ackley function at the given points.
+
+        Args:
+            points: Points in [0, 1]^D to evaluate.
+
+        Returns:
+            Function values.
+        """
+        points = points.astype(np.float64)
+        scaled = self._lower + points * (self._upper - self._lower)
+        x = torch.from_numpy(scaled)
+        return self._botorch_ackley(x).cpu().numpy()
+
+
+class Michalewicz(Benchmark):
+    """Michalewicz function (negated for maximisation).
+
+    Wraps BoTorch's :class:`botorch.test_functions.synthetic.Michalewicz`. Inputs
+    are expected in the [0, 1] hypercube and are scaled internally to the standard
+    Michalewicz domain of [0, pi] per dimension. The function is negated so that
+    it is a maximisation problem (following the Arena convention).
+
+    Args:
+        dim: Input dimensionality.
+
+    Raises:
+        ValueError: If metadata is not found for the benchmark.
+    """
+
+    def __init__(self, dim: int, metadata: BenchmarkMetadata | None = None) -> None:
+        name = f"michalewicz_dim_{dim}"
+        if metadata is None:
+            metadata = SYNTHETIC_BENCHMARK_METADATA.get(name)
+            if metadata is None:
+                msg = f"Metadata not found for benchmark '{name}'."
+                raise ValueError(msg)
+
+        super().__init__(name=name, metadata=metadata)
+        self._botorch_michalewicz = BotorchMichalewicz(dim=dim, negate=True)
+        self._lower = self._botorch_michalewicz.bounds[0].numpy()
+        self._upper = self._botorch_michalewicz.bounds[1].numpy()
+
+    def evaluate_points(
+        self, points: Float[np.ndarray, "N D"]
+    ) -> Float[np.ndarray, " N"]:
+        """Evaluate the Michalewicz function at the given points.
+
+        Args:
+            points: Points in [0, 1]^D to evaluate.
+
+        Returns:
+            Function values.
+        """
+        points = points.astype(np.float64)
+        scaled = self._lower + points * (self._upper - self._lower)
+        x = torch.from_numpy(scaled)
+        return self._botorch_michalewicz(x).cpu().numpy()
+
+
+class StyblinskiTang(Benchmark):
+    """Styblinski-Tang function (negated for maximisation).
+
+    Wraps BoTorch's :class:`botorch.test_functions.synthetic.StyblinskiTang`.
+    Inputs are expected in the [0, 1] hypercube and are scaled internally to the
+    standard Styblinski-Tang domain of [-5, 5] per dimension. The function is
+    negated so that it is a maximisation problem (following the Arena convention).
+
+    Args:
+        dim: Input dimensionality.
+
+    Raises:
+        ValueError: If metadata is not found for the benchmark.
+    """
+
+    def __init__(self, dim: int, metadata: BenchmarkMetadata | None = None) -> None:
+        name = f"styblinski_tang_dim_{dim}"
+        if metadata is None:
+            metadata = SYNTHETIC_BENCHMARK_METADATA.get(name)
+            if metadata is None:
+                msg = f"Metadata not found for benchmark '{name}'."
+                raise ValueError(msg)
+
+        super().__init__(name=name, metadata=metadata)
+        self._botorch_styblinski_tang = BotorchStyblinskiTang(dim=dim, negate=True)
+        self._lower = self._botorch_styblinski_tang.bounds[0].numpy()
+        self._upper = self._botorch_styblinski_tang.bounds[1].numpy()
+
+    def evaluate_points(
+        self, points: Float[np.ndarray, "N D"]
+    ) -> Float[np.ndarray, " N"]:
+        """Evaluate the Styblinski-Tang function at the given points.
+
+        Args:
+            points: Points in [0, 1]^D to evaluate.
+
+        Returns:
+            Function values.
+        """
+        points = points.astype(np.float64)
+        scaled = self._lower + points * (self._upper - self._lower)
+        x = torch.from_numpy(scaled)
+        return self._botorch_styblinski_tang(x).cpu().numpy()
