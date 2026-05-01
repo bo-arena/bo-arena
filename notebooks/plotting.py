@@ -19,11 +19,14 @@ from plotting_utils import plot_cum_max_y_custom
 plot_cum_max_y_custom(
     agents={
         "random": ["default"],
+        "vanilla_bo_yu_2026": ["default"],
         "historic_bo": ["default"],
         "vanilla_bo": ["default"],
-        "vanilla_bo_yu_2026": ["default"],
+        "ei_bo": ["default"],
     },
     problems=["mopta08", "lasso-dna", "svm"],
+    legend_ncols=3,
+    height_to_width_ratio=1.02,
     appendix=["rover", "mujoco-ant", "mujoco-humanoid"],
     appendix_ncols=3,
     appendix_height_to_width_ratio=0.83,
@@ -51,11 +54,11 @@ plot_cum_max_y_custom(
 plot_cum_max_y_custom(
     agents={
         "turbo": ["default", "no_raasp"],
-        "vanilla_bo": ["default", "no_raasp", "botorch_raasp"],
+        "vanilla_bo": ["botorch_raasp", "no_raasp"],
     },
     problems=["mopta08", "lasso-dna", "svm"],
     show_strategy=True,
-    legend_ncols=3,
+    legend_ncols=2,
     height_to_width_ratio=1.02,
     appendix=["rover", "mujoco-ant", "mujoco-humanoid"],
     appendix_ncols=3,
@@ -97,7 +100,20 @@ plot_cum_max_y_custom(
         "linear_bo": ["default"],
     },
     problems=["bbob-griewankrosenbrock", "bbob-rastriginrotated", "bbob-schwefel"],
-    # problems=["bbob-griewankrosenbrock", "bbob-attractivesector", "bbob-ellipsoidrotated"],
     filename="bbob",
+)
+
+# %%
+plot_cum_max_y_custom(
+    agents={
+        "random": ["default"],
+        "turbo": ["default"],
+        # "saasbo": ["default"],
+        "bounce": ["default"],
+        "vanilla_bo": ["default"],
+        "linear_bo": ["default"],
+    },
+    problems=["ackley_dim_100", "michalewicz_dim_100", "styblinski_tang_dim_100"],
+    filename="sfu",
 )
 # %%
