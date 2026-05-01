@@ -7,7 +7,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import EngFormatter, MaxNLocator
 from tueplots import figsizes, fonts, fontsizes
 from tueplots.constants.color import palettes
 
@@ -20,7 +20,7 @@ BENCHMARK_METADATA = {**BENCHMARK_METADATA, **SYNTHETIC_BENCHMARK_METADATA}
 plt.rcParams.update({"figure.dpi": 200})
 
 AGENT_NAME_MAPPING = {
-    "best_1_window_100_vanilla_bo": "Vanilla BO (best 1 + window 100)",
+    "best_1_window_100_vanilla_bo": "Vanilla BO (window 100 with encumbent))",
     "bounce": "Bounce",
     "ei_bo": "EI-BO (Cheon et al., 2025)",
     "eulbo": "EULBO",
@@ -362,6 +362,8 @@ def _plot_cum_max_y_single(
             if i % ncols == 0:
                 ax.set_ylabel("Max. Observed Value")
             ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+            if ax.get_xlim()[1] >= 5000:
+                ax.xaxis.set_major_formatter(EngFormatter(sep=""))
             ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
             ax.grid(True, alpha=0.2)
 
