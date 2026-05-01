@@ -69,7 +69,7 @@ class HistoricBO(AskTellAgent):
         self.input_dim = input_dim
         if acqf_opt_strategy == "default":
             self.opt_kwargs = {
-                "raw_samples": 512,
+                "raw_samples": 1024,
                 "num_restarts": 4,
                 "retry_on_optimization_warning": False,
                 "options": {

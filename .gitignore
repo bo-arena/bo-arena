@@ -219,6 +219,7 @@ __marimo__/
 tests/regression_reports/
 
 # Experiment results and logs
+ei_bo_results/
 eulbo_results/
 results/
 results_v2/
