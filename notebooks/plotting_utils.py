@@ -20,7 +20,7 @@ BENCHMARK_METADATA = {**BENCHMARK_METADATA, **SYNTHETIC_BENCHMARK_METADATA}
 plt.rcParams.update({"figure.dpi": 200})
 
 AGENT_NAME_MAPPING = {
-    "best_1_window_100_vanilla_bo": "Vanilla BO (window 100 with encumbent))",
+    "best_1_window_100_vanilla_bo": "Vanilla BO (window 100 with encumbent)",
     "bounce": "Bounce",
     "ei_bo": "EI-BO (Cheon et al., 2025)",
     "eulbo": "EULBO",
