@@ -100,7 +100,11 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
         "time": "96:00:00",
     },
     ("mujoco-humanoid", "linear_bo"): {
-        "mem": "24G",
+        "device": "cuda",
+        "gres": "gpu:1",
+        "cpus": 4,
+        "mem": "32G",
+        "time": "48:00:00",
     },
     ("mujoco-humanoid", "bounce"): {
         "device": "cuda",
