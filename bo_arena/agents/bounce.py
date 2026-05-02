@@ -44,7 +44,7 @@ class BounceState:
     # allocated to the entire run
     new_bins_on_split: int = 2
     initial_target_dim: int = 2
-    eval_budget_until_input_dim: int = 250  # TODO(Thomas-Christie): a sensible way of
+    eval_budget_until_input_dim: int = 250  # TODO: a sensible way of  # noqa: TD002
     # setting this (and some of the properties above) should be considered when we
     # release bo-arena.
 

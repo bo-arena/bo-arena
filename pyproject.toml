@@ -1,6 +1,5 @@
 [project]
 
-authors = [{ name = "Thomas Christie", email = "thomashamish@hotmail.com" }]
 name = "bo-arena"
 dynamic = ["version"]
 description = "Arena for simple, reliable, and efficient benchmarking of BO algorithms."

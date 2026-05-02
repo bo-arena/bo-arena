@@ -33,7 +33,7 @@ Thanks for your interest in contributing to `bo-arena`! We welcome contributions
    ```
    git push origin <new-feature-branch>
    ```
-8. **Create a Pull Request**: Open a pull request in the [original `bo-arena` repository](https://github.com/Thomas-Christie/bo-arena).
+8. **Create a Pull Request**: Open a pull request in the original `bo-arena` repository.
 
 ## Notebooks
 

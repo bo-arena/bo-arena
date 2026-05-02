@@ -1,33 +1,169 @@
 # bo-arena
-Arena for simple, reliable, and efficient benchmarking of Bayesian optimisation algorithms.
+Arena for simple, reliable, and efficient benchmarking of Bayesian optimisation algorithms. This repository contains the code used to run the experiments in the paper: `BO-Arena: An Evolving Benchmark for High-Dimensional Bayesian Optimisation`.
 
 ### Contributing
 
 Please refer to the [contributing guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
 
-### Running Experiments with Bencher on a SLURM Cluster
-The `slurm` directory contains SLURM batch scripts for building Singularity containers and running `Bencher` and `bo-arena` experiments on a SLURM cluster. These scripts are designed to be run on the cluster and may require modifications to paths, resource specifications, and other parameters to fit your specific cluster setup.
+### Running Experiments with bencher on a SLURM Cluster
+The `slurm` directory contains SLURM batch scripts for building Singularity containers and running `bencher` and `bo-arena` experiments on a SLURM cluster. These scripts may require modifications to paths, resource specifications, and other parameters to fit your specific cluster setup.
 
-Each experiment job is self-contained: it starts a `Bencher` server as a sidecar process on `localhost`, runs the experiment, then shuts the server down on exit. This means no shared `Bencher` server is needed, jobs scale independently, and there is no coordination between jobs. Multiple jobs running concurrently on the same node are safe — the Linux kernel's `SO_REUSEPORT` allows multiple `Bencher` instances to bind to the same ports simultaneously and distributes requests across them. There are two containers involved per job:
+Each experiment job is self-contained: it starts a `bencher` server as a sidecar process on `localhost`, runs the experiment, then shuts the server down on exit. This means no shared `bencher` server is needed, jobs scale independently, and there is no coordination between jobs. Multiple jobs running concurrently on the same node are safe — the Linux kernel's `SO_REUSEPORT` allows multiple `bencher` instances to bind to the same ports simultaneously and distributes requests across them. There are two containers involved per job:
 
-1. **`Bencher` container**: Runs the `Bencher` server on `localhost`. Started as a background sidecar at the beginning of each experiment job and stopped automatically when the job exits.
-2. **`bo-arena` experiment container**: Runs the `bo-arena` experiment, connecting to the `Bencher` server on `localhost:50051`. A single container is used for both CPU and GPU jobs.
+1. **`bencher` container**: Runs the `bencher` server on `localhost`. Started as a background sidecar at the beginning of each experiment job and stopped automatically when the job exits.
+2. **`bo-arena` experiment container**: Runs the `bo-arena` experiment, connecting to the `bencher` server on `localhost:50051`.
 
 In order to run experiments, follow these steps:
 1. Copy `slurm/config.sh.example` to `slurm/config.sh` and fill in your cluster-specific paths and partition names. This file is gitignored and must be created by each user.
-2. Build the Singularity images using `slurm/submit.sh` (e.g. `bash slurm/submit.sh build_bencher_singularity.sbatch` and `bash slurm/submit.sh build_bo_arena_singularity.sbatch`). One person should build the images and share them with collaborators (e.g. via `cp` on the cluster) to ensure identical environments.
-3. Run experiments by specifying the benchmark, agent, and acquisition function optimization strategy:
-   ```bash
-   bash slurm/submit.sh run_experiment_cpu.sbatch \
-       --export=ALL,BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default
-   ```
-   This submits a SLURM job array that runs the agent across the first 10 experiment seeds (indices 0–9). To run the second batch of seeds, override the array range:
-   ```bash
-   bash slurm/submit.sh run_experiment_cpu.sbatch \
-       --export=ALL,BENCHMARK=lasso-dna,AGENT=vanilla_bo,ACQF_OPT_STRATEGY=default \
-       --array=10-19
-   ```
-   Each job starts its own `Bencher` sidecar automatically — no need to start a separate `Bencher` job first.
-4. Sync WandB results after experiments finish using `bash slurm/submit.sh sync_wandb.sbatch`. Experiments log to WandB in offline mode to avoid API rate limits with many concurrent jobs. The sync script uploads runs one at a time, moving successful uploads to `wandb/synced/`. Failed syncs are left in place so you can re-run the script to retry only those.
+2. Build the Singularity images using `sbatch build_bencher_singularity.sbatch` and `sbatch build_bo_arena_singularity.sbatch`. One person should build the images and share them with collaborators to ensure identical environments. The exact images used for running the experiments in the paper will be released upon publication. Images are expected to be in an `images/` directory.
+3. Run experiments with `submit.py`. Commands used to run the experiments can be found below. Each job starts its own `bencher` sidecar automatically — no need to start a separate `bencher` job first. Note that `submit.py` performs operations such as setting time and memory limits, and deciding whether to run on CPU or GPU depending on the algorithm/task being run, so you may wish to edit this depending on your specific cluster setup.
+4. Sync WandB results after experiments finish using `bash submit.sh sync_wandb.sbatch`. Experiments log to WandB in offline mode to avoid API rate limits with many concurrent jobs.
 
-All jobs should be submitted via `slurm/submit.sh` rather than `sbatch` directly — it sources `slurm/config.sh` and passes the cluster-specific `--chdir`, `--output`, and `--partition` flags to `sbatch`.
+### Experiment Commands
+
+Below are the commands used to run the experiments in the paper:
+
+1. Main results (Figure 3). For this plot, we ran algorithms using the default settings from their respective papers via the following command:
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent vanilla_bo,linear_bo,random,turbo \
+    --acqf-opt-strategy default \
+    --seed-range 0-19
+    ```
+    The bounce results are obtained via the following command (as the number of initial points used in the paper is 5, due to a low-dimensional subspace being used at the start):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent bounce \
+    --acqf-opt-strategy default \
+    --n-init 5 \
+    --seed-range 0-19
+    ```
+    The SAASBO results are obtained via the following command, as we limited the total number of evaluations to 500 due to the expense of running the algorithm (and didn't run on mujoco-humanoid as it was too expensive to run with SAASBO):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant\
+    --agent saasbo \
+    --acqf-opt-strategy default \
+    --n-evals 500 \
+    --seed-range 0-19
+    ```
+
+2. Figure 1 (and Figure 8) results. The "Vanilla BO (Hvarfner et al., 2024)" and "Random" results were obtained using the command above. The "Vanilla BO (Yu et al., 2026)" results were obtained using the following command:
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent vanilla_bo_yu_2026 \
+    --acqf-opt-strategy default \
+    --seed-range 0-19
+    ```
+    The "BoTorch v0.11.3 (2024)" results were obtained using the following command:
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent historic_bo \
+    --acqf-opt-strategy default \
+    --seed-range 0-19
+    ```
+    The "EI-BO (Cheon et al., 2025)" results were obtained using the package referenced in the original paper, modified to use `bencher` and the same initial points as used in the rest of the experiments.
+
+3. Synthetic benchmark results (Figure 4). These results were obtained with the following commands:
+    ```
+    python slurm/submit.py \
+    --benchmark ackley_dim_100,michalewicz_dim_100,styblinski_tang_dim_100 \
+    --agent vanilla_bo,linear_bo,random,turbo \
+    --acqf-opt-strategy default \
+    --seed-range 0-19
+    ```
+    And the results for bounce were obtained with:
+    ```
+    python slurm/submit.py \
+    --benchmark ackley_dim_100,michalewicz_dim_100,styblinski_tang_dim_100 \
+    --agent bounce \
+    --acqf-opt-strategy default \
+    --n-init 5 \
+    --seed-range 0-19
+    ```
+
+4. EULBO comparison (Figure 5). The Vanilla BO (window 100) and Vanilla BO (window 100 with incumbent) results were obtained with the following commands:
+    ```
+    python slurm/submit.py \
+    --benchmark mopta08,lasso-dna,svm \
+    --agent window_vanilla_bo,best_window_vanilla_bo \
+    --acqf-opt-strategy default \
+    --batch-size 20 \
+    --n-evals 20000 \
+    --seed-range 0-19
+    ```
+    The EULBO results were obtained using the public repository of the original paper, modified to use `bencher` and the same initial points as used in the rest of the experiments.
+
+5. RAASP ablation (Figures 6 and 9). These results were obtained with the following commands.
+
+    TuRBO (RAASP):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent turbo \
+    --acqf-opt-strategy raasp \
+    --seed-range 0-19
+    ```
+    Vanilla BO (BoTorch RAASP):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent vanilla_bo \
+    --acqf-opt-strategy botorch_raasp \
+    --seed-range 0-19
+    ```
+    Vanilla BO and TuRBO (no RAASP):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent vanilla_bo,turbo \
+    --acqf-opt-strategy no_raasp \
+    --seed-range 0-19
+    ```
+
+6. Trust-regions ablation (Figures 7 and 10). These results were obtained with the following commands.
+
+    Vanilla BO:
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent vanilla_bo \
+    --acqf-opt-strategy botorch_raasp \
+    --seed-range 0-19
+    ```
+    TuRBO:
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent turbo \
+    --acqf-opt-strategy default \
+    --seed-range 0-19
+    ```
+    TuRBO (DSP):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent turbo_dsp \
+    --acqf-opt-strategy raasp \
+    --seed-range 0-19
+    ```
+    TuRBO (LogEI):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent turbo_log_ei \
+    --acqf-opt-strategy raasp \
+    --seed-range 0-19
+    ```
+    TuRBO (LogEI + DSP):
+    ```
+    python slurm/submit.py \
+    --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
+    --agent turbo_log_ei_dsp \
+    --acqf-opt-strategy raasp \
+    --seed-range 0-19
+    ```
