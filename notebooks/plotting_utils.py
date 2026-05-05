@@ -261,6 +261,7 @@ def _plot_cum_max_y_single(
     filename: str | None,
     allow_partial_seeds: bool,  # noqa: FBT001
     drop_k_slowest: int,
+    overlay_last: list[str] | None,
 ) -> None:
     """Draw a single cum-max-y figure. See `plot_cum_max_y_custom` for details."""
     # Merge user-provided name overrides on top of the defaults
@@ -321,10 +322,12 @@ def _plot_cum_max_y_single(
                         ls = STRATEGY_LINESTYLE_MAPPING.get(strategy, "solid")
                     else:
                         ls = AGENT_LINESTYLE_MAPPING.get(agent_name, "solid")
+                    on_top = overlay_last and agent_name in overlay_last
 
                     # Mean line + SEM band
                     ax.plot(
-                        iters, cum_max_y_mean, label=label, color=color, linestyle=ls
+                        iters, cum_max_y_mean, label=label, color=color, linestyle=ls,
+                        **({"zorder": 3} if on_top else {}),
                     )
                     ax.fill_between(
                         iters,
@@ -332,6 +335,7 @@ def _plot_cum_max_y_single(
                         cum_max_y_mean + cum_max_y_sem,
                         alpha=0.2,
                         color=color,
+                        **({"zorder": 2.5} if on_top else {}),
                     )
 
                     # Record post-init bounds so the y-axis can ignore init-phase spikes
@@ -407,6 +411,7 @@ def plot_cum_max_y_custom(
     appendix: list[str] | None = None,
     appendix_ncols: int | None = None,
     appendix_height_to_width_ratio: float | None = None,
+    overlay_last: list[str] | None = None,
 ) -> None:
     """Plot cumulative maximum y values (mean +- 1SEM) for custom agent/strategy combos.
 
@@ -436,6 +441,8 @@ def plot_cum_max_y_custom(
         appendix_ncols: `ncols` override for the appendix figure. Defaults to `ncols`.
         appendix_height_to_width_ratio: `height_to_width_ratio` override for the
             appendix figure. Defaults to `height_to_width_ratio`.
+        overlay_last: Agent names that should be rendered on top of all other lines
+            (via higher zorder). Legend order is unaffected.
     """
     _plot_cum_max_y_single(
         agents=agents,
@@ -449,6 +456,7 @@ def plot_cum_max_y_custom(
         filename=filename,
         allow_partial_seeds=allow_partial_seeds,
         drop_k_slowest=drop_k_slowest,
+        overlay_last=overlay_last,
     )
     if appendix:
         _plot_cum_max_y_single(
@@ -467,4 +475,5 @@ def plot_cum_max_y_custom(
             filename=f"{filename}_appendix" if filename is not None else None,
             allow_partial_seeds=allow_partial_seeds,
             drop_k_slowest=drop_k_slowest,
+            overlay_last=overlay_last,
         )

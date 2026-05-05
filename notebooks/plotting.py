@@ -48,6 +48,7 @@ plot_cum_max_y_custom(
     ncols=3,
     height_to_width_ratio=0.83,
     filename="fig7_vanilla_bo",
+    overlay_last=["saasbo"],
 )
 
 # %%
