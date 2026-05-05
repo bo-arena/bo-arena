@@ -1,9 +1,27 @@
 # bo-arena
-Arena for simple, reliable, and efficient benchmarking of Bayesian optimisation algorithms. This repository contains the code used to run the experiments in the paper: `BO-Arena: An Evolving Benchmark for High-Dimensional Bayesian Optimisation`.
+Arena for simple, reliable, and efficient benchmarking of Bayesian optimisation algorithms. This repository contains the code used to run the experiments in the paper: `BO-Arena: An Evolving Benchmark for High-Dimensional Bayesian Optimisation`. For commands used to run the experiments for the paper, see the "Experiment Commands" section below.
 
 ### Contributing
 
 Please refer to the [contributing guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
+
+### Quickstart
+
+In order to run a quick experiment with `bo-arena`, using similar code to the snippet presented in the appendix of our paper, follow these steps:
+
+1. Install dependencies using `uv` (see the "Install Dependencies" section of the [contributing guidelines](CONTRIBUTING.md) for details).
+2. Start up the `bencher` server by following the instructions in the `bencher` documentation [here](https://github.com/lpapenme/bencher). To summarise, you will need to first pull the docker image with:
+
+    ```
+    docker pull gaunab/bencher:latest
+    ```
+
+    Then, you can start the server with:
+
+    ```
+    docker run -p 50051:50051 --restart always -d gaunab/bencher:latest
+    ```
+3. Run the `quickstart` notebook in the `notebooks/` directory, which demonstrates how to run a simple experiment with `bo-arena` using the `bencher` server you just started. For instructions on converting between `.py` and `.ipynb` formats, see the "Notebooks" section of the [contributing guidelines](CONTRIBUTING.md).
 
 ### Running Experiments with bencher on a SLURM Cluster
 The `slurm` directory contains SLURM batch scripts for building Singularity containers and running `bencher` and `bo-arena` experiments on a SLURM cluster. These scripts may require modifications to paths, resource specifications, and other parameters to fit your specific cluster setup.

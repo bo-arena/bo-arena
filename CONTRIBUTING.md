@@ -24,7 +24,7 @@ Thanks for your interest in contributing to `bo-arena`! We welcome contributions
    git checkout -b <new-feature-branch>
    ```
 4. **Make Changes**: Implement your changes in the codebase. Please ensure that your code includes appropriate tests.
-5. **Run Tests**: Before committing your changes, run the unittests to ensure everything is working correctly:
+5. **Run Tests**: Before committing your changes, run the unit tests to ensure everything is working correctly:
    ```
    uv run pytest -m "not regression" tests
    ```
