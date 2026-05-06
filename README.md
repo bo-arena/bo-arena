@@ -123,7 +123,7 @@ Below are the commands used to run the experiments in the paper:
     python slurm/submit.py \
     --benchmark rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid \
     --agent turbo \
-    --acqf-opt-strategy raasp \
+    --acqf-opt-strategy default \
     --seed-range 0-19
     ```
     Vanilla BO (BoTorch RAASP):
@@ -185,3 +185,5 @@ Below are the commands used to run the experiments in the paper:
     --acqf-opt-strategy raasp \
     --seed-range 0-19
     ```
+
+Code used for plotting the figures can be found in `notebooks/plotting.py`.
