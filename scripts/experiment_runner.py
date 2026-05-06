@@ -26,6 +26,9 @@ RESULTS_DIR = ROOT_DIR / "results"
 
 logger = logging.getLogger(__name__)
 
+WANDB_ENTITY = "YOUR_WANDB_ENTITY"
+WANDB_PROJECT = "YOUR_WANDB_PROJECT"
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -251,8 +254,8 @@ def main() -> None:  # noqa: PLR0915
     if not args.no_wandb:
         os.environ["WANDB_MODE"] = "offline"
         wandb_run = wandb.init(
-            entity="bo-arena",
-            project="bo-arena-v2",
+            entity=WANDB_ENTITY,
+            project=WANDB_PROJECT,
             name=f"seed_{seed}",
             group=wandb_group,
             config={**config, "seed": seed},
