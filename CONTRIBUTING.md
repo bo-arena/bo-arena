@@ -26,7 +26,7 @@ Thanks for your interest in contributing to `bo-arena`! We welcome contributions
 4. **Make Changes**: Implement your changes in the codebase. Please ensure that your code includes appropriate tests.
 5. **Run Tests**: Before committing your changes, run the unit tests to ensure everything is working correctly:
    ```
-   uv run pytest -m "not regression" tests
+   uv run pytest tests
    ```
 6. **Commit Changes**: Commit your changes with a clear and descriptive commit message.
 7. **Push Changes**: Push your changes to your forked repository:
@@ -50,18 +50,3 @@ We use `jupytext` to manage Jupyer notebooks, storing them as `.py` files for be
   ```
 
 Note that you can prepend `uv run` to these commands if you have `jupytext` installed in your `uv`-managed virtual environment.
-
-
-## Regression Tests
-
-We have a regression test that compares the performance of registered agents against checked-in performance baselines. This is currently done on a 300D embedding of the Hartmann6D benchmark. This test is designed to always pass, and its primary purpose is to generate a report showing whether agent performance has changed relative to the baselines stored in `tests/regression_baselines/`. This helps us to monitor for any unintended performance regressions in agents over time, which may primarily happen due to:
-1. Changes in this codebase affecting agent performance, or
-2. Changes in upstream dependencies affecting agent performance (e.g. BoTorch, GPyTorch, etc.).
-
-When adding an agent, you should generate baseline results for it by running:
-
-```
-uv run scripts/generate_regression_baselines.py --agents <agent-name>
-```
-
-This runs the agent on the synthetic benchmark and saves the resulting performance baseline in `tests/regression_baselines/`. You can then commit this baseline file to the repository so that it can be used for future regression testing. Please refer to `scripts/generate_regression_baselines.py` and `tests/test_regression.py` for more details on how the regression test works and how to generate baselines.

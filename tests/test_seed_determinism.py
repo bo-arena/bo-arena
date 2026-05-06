@@ -9,8 +9,22 @@ from bo_arena.arena import Arena, RunResult
 from bo_arena.benchmarks.synthetic_benchmarks import Hartmann6D
 from bo_arena.utils.miscellaneous import generate_seed
 
+SKIP_REASONS = {
+    "saasbo": "too slow to run in the determinism suite",
+    "bounce": "intricate setup is incompatible with this harness",
+    "bounce_log_ei": "intricate setup is incompatible with this harness",
+    "bounce_dsp": "intricate setup is incompatible with this harness",
+    "bounce_log_ei_dsp": "intricate setup is incompatible with this harness",
+}
+AGENT_PARAMS = [
+    pytest.param(name, marks=pytest.mark.skip(reason=SKIP_REASONS[name]))
+    if name in SKIP_REASONS
+    else name
+    for name in AGENTS
+]
 
-@pytest.mark.parametrize("agent_name", AGENTS.keys())
+
+@pytest.mark.parametrize("agent_name", AGENT_PARAMS)
 def test_seed_determinism(agent_name: str) -> None:
     """Running the Arena twice with the same seed should give identical results."""
     benchmark = Hartmann6D(embed_dim=100)
@@ -37,7 +51,7 @@ def test_seed_determinism(agent_name: str) -> None:
     np.testing.assert_array_equal(result_1.observed_data.y, result_2.observed_data.y)
 
 
-@pytest.mark.parametrize("agent_name", AGENTS.keys())
+@pytest.mark.parametrize("agent_name", AGENT_PARAMS)
 def test_different_seeds_give_different_results(agent_name: str) -> None:
     """Running the Arena with different seeds should give different results."""
     benchmark = Hartmann6D(embed_dim=100)
