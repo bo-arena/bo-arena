@@ -1,5 +1,9 @@
 name: Run Tests
 on:
+    pull_request:
+    push:
+        branches:
+            - main
     workflow_dispatch:
 
 jobs:
@@ -8,8 +12,8 @@ jobs:
         timeout-minutes: 30
         strategy:
             matrix:
-                os: ["ubuntu-latest", "macos-latest"]
-                python-version: ["3.11", "3.14"]
+                os: [ "ubuntu-latest" ]
+                python-version: [ "3.11", "3.14" ]
             fail-fast: true
         runs-on: ${{ matrix.os }}
         steps:
@@ -31,4 +35,4 @@ jobs:
               run: uv sync --frozen --extra test
 
             - name: Run Tests
-              run: uv run pytest -m "not regression" tests
+              run: uv run pytest tests
