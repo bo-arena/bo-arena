@@ -38,6 +38,8 @@ In order to run experiments, follow these steps:
 4. Run experiments with `submit.py`. Commands used to run the experiments can be found below. Each job starts its own `bencher` sidecar automatically — no need to start a separate `bencher` job first. Note that `submit.py` performs operations such as setting time and memory limits, and deciding whether to run on CPU or GPU depending on the algorithm/task being run, so you may wish to edit this depending on your specific cluster setup. The main code for actually running the experiments, which is executed via `submit.py`, can be found in `scripts/experiment_runner.py`. The core logic is very similar to the code snippet provided in our paper, with additional code added for performing tasks such as initialising a WandB run, setting up a logger, ensuring the working tree is clean for reproducibility, and saving results.
 5. Sync WandB results after experiments finish using `bash submit.sh sync_wandb.sbatch`. Experiments log to WandB in offline mode to avoid API rate limits with many concurrent jobs.
 
+Note that if you wish to run experiments without using the SLURM scripts, or building the Singularity image for `bo-arena`, you can do so by creating a virtual environment with the dependencies specified in `uv.lock` (which were used for running experiments in the paper), and running the code in `scripts/experiment_runner.py` directly, ensuring you have a `bencher` server running and accessible at `localhost:50051`. The correct arguments to provide to `experiment_runner.py` can be inferred from the "Experiment Commands" section below.
+
 ### Experiment Commands
 
 Below are the commands used to run the experiments in the paper:
