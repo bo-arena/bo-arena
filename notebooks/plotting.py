@@ -70,7 +70,7 @@ plot_cum_max_y_custom(
 # %%
 plot_cum_max_y_custom(
     agents={
-        "vanilla_bo": ["default"],
+        "vanilla_bo": ["botorch_raasp"],
         "turbo": ["default"],
         "turbo_dsp": ["raasp"],
         "turbo_log_ei": ["raasp"],
