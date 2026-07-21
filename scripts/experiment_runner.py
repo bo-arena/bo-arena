@@ -26,8 +26,8 @@ RESULTS_DIR = ROOT_DIR / "results"
 
 logger = logging.getLogger(__name__)
 
-WANDB_ENTITY = "YOUR_WANDB_ENTITY"
-WANDB_PROJECT = "YOUR_WANDB_PROJECT"
+WANDB_ENTITY = "bo-arena"
+WANDB_PROJECT = "bo-arena-v2"
 
 
 def parse_args() -> argparse.Namespace:
