@@ -4,6 +4,7 @@ from functools import partial
 
 from .bounce import Bounce
 from .historic_bo import HistoricBO
+from .ibnn import IBNN, IBNNLi2024
 from .linear import LinearBO
 from .random import Random
 from .saasbo import SAASBO
@@ -16,6 +17,8 @@ AGENTS = {
     "bounce_dsp": partial(Bounce, use_dsp=True),
     "bounce_log_ei_dsp": partial(Bounce, use_log_ei=True, use_dsp=True),
     "historic_bo": HistoricBO,
+    "ibnn": IBNN,
+    "ibnn_li2024": IBNNLi2024,
     "linear_bo": LinearBO,
     "random": Random,
     "saasbo": SAASBO,
