@@ -219,15 +219,9 @@ __marimo__/
 tests/regression_reports/
 
 # Experiment results and logs
-ei_bo_results/
-eulbo_results/
-results/
-results_v2/
-logs/
-wandb/
-results_old/
-logs_old/
-wandb_old/
+results*/
+logs*/
+wandb*/
 
 # Other
 slurm/bencher_host.txt
