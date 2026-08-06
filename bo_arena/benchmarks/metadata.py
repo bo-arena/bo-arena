@@ -20,6 +20,46 @@ class BenchmarkMetadata:
 
 
 BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
+    "lunarlander": BenchmarkMetadata(
+        input_dim=12,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=50,
+        default_n_total_evaluations=500,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(12),
+            upper_bounds=np.ones(12),
+        ),
+    ),
+    "robotpushing": BenchmarkMetadata(
+        input_dim=14,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=50,
+        default_n_total_evaluations=500,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(14),
+            upper_bounds=np.ones(14),
+        ),
+    ),
+    "mujoco-swimmer": BenchmarkMetadata(
+        input_dim=16,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=50,
+        default_n_total_evaluations=500,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(16),
+            upper_bounds=np.ones(16),
+        ),
+    ),
+    "mujoco-hopper": BenchmarkMetadata(
+        input_dim=33,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=50,
+        default_n_total_evaluations=500,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(33),
+            upper_bounds=np.ones(33),
+        ),
+    ),
     "rover": BenchmarkMetadata(
         input_dim=60,
         input_type=ValueType.CONTINUOUS,
