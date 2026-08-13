@@ -26,15 +26,27 @@ In order to run a quick experiment with `bo-arena`, using similar code to the sn
 ### Running Experiments with bencher on a SLURM Cluster
 The `slurm` directory contains SLURM batch scripts for building Singularity containers and running `bencher` and `bo-arena` experiments on a SLURM cluster. These scripts may require modifications to paths, resource specifications, and other parameters to fit your specific cluster setup.
 
-Each experiment job is self-contained: it starts a `bencher` server as a sidecar process on `localhost`, runs the experiment, then shuts the server down on exit. This means no shared `bencher` server is needed, jobs scale independently, and there is no coordination between jobs. Multiple jobs running concurrently on the same node are safe — the Linux kernel's `SO_REUSEPORT` allows multiple `bencher` instances to bind to the same ports simultaneously and distributes requests across them. There are two containers involved per job:
+Each experiment job is self-contained: it starts a `bencher` server as a sidecar process, runs the experiment, then shuts the server down on exit. This means no shared `bencher` server is needed, jobs scale independently, and there is no coordination between jobs. Each job gives its sidecar a private set of Unix domain sockets under `$TMPDIR/bencher-$SLURM_JOB_ID`, so jobs co-scheduled on the same node cannot reach each other's server. There are two containers involved per job:
 
-1. **`bencher` container**: Runs the `bencher` server on `localhost`. Started as a background sidecar at the beginning of each experiment job and stopped automatically when the job exits.
-2. **`bo-arena` experiment container**: Runs the `bo-arena` experiment, connecting to the `bencher` server on `localhost:50051`.
+1. **`bencher` container**: Runs the `bencher` server on the job's own sockets. Started as a background sidecar at the beginning of each experiment job and stopped automatically when the job exits.
+2. **`bo-arena` experiment container**: Runs the `bo-arena` experiment, connecting to the `bencher` server over that job's router socket.
+
+We use Unix sockets rather than fixed TCP ports to prevent different SLURM jobs from using each other's sidecars. TCP ports live in the node's network namespace, so jobs on the same node bind to the same TCP ports (50051, 50053-50060). This is problematic: when one of those job exits, its cleanup script kills the shared sidecar, and the other jobs that relied on that sidecar might fail. In contrast, sockets are addressed by filesystem path, so putting the job id in the path means different jobs can't share each other's sidecar, avoiding this problem.
+
+This puts two requirements on `$TMPDIR`: (1) it must support `AF_UNIX` (e.g. GPFS does, but Lustre commonly does not) and (2) the path must stay under the 108-byte `sun_path` limit. Ideally, this `$TMPDIR` should also be job-specific, so the sockets disappear once the job is gone. Nevertheless, if `$TMPDIR` is not job-specific, our current script will still remove all remaining sockets, but only for normal job exits. The exception here is a `SIGKILL` (because it cannot be trapped), in which case the user will need to go and clean up the sockets themselves (again, unless their cluster gives each job a private `/tmp`). The latter scenario is mostly clutter but is unlikely to put any cluster under strain: the sockets are zero-byte. Also, the sockets' path carries the job id, so the next run will not collide with or rely on these orphaned sockets.
 
 In order to run experiments, follow these steps:
 1. Copy `slurm/config.sh.example` to `slurm/config.sh` and fill in your cluster-specific paths and partition names. This file is gitignored and must be created by each user.
 2. Fill in your Weights and Biases entity and project name in the `WANDB_ENTITY` and `WANDB_PROJECT` variables in `scripts/experiment_runner.py`.
-3. Build the Singularity images using `sbatch build_bencher_singularity.sbatch` and `sbatch build_bo_arena_singularity.sbatch`. The exact images used for running the experiments in the paper will be released upon publication. Images are expected to be in an `images/` directory.
+3. Obtain the Singularity images, which are expected to be in an `images/` directory.
+    - **`bencher`**: build with `sbatch build_bencher_singularity.sbatch` or just pull the published image (easier than having to build it yourself). The socket support above requires `bencherscaffold >= 0.5.2` (previous versions bind to TCP ports instead of Unix sockets), which the latest published image satisfies:
+      ```
+      singularity pull images/bencher_uds.sif docker://gaunab/bencher:latest
+      ```
+      Override the path with the `BENCHER_IMAGE` environment variable if you keep it elsewhere.
+    - **`bo-arena`**: build with `sbatch build_bo_arena_singularity.sbatch`. Note that this needs `--fakeroot`, which requires an `/etc/subuid` entry; on clusters without one, build the image elsewhere and copy it in.
+
+   The exact images used for running the experiments in the paper will be released upon publication.
 4. Run experiments with `submit.py`. Commands used to run the experiments can be found below. Each job starts its own `bencher` sidecar automatically — no need to start a separate `bencher` job first. Note that `submit.py` performs operations such as setting time and memory limits, and deciding whether to run on CPU or GPU depending on the algorithm/task being run, so you may wish to edit this depending on your specific cluster setup. The main code for actually running the experiments, which is executed via `submit.py`, can be found in `scripts/experiment_runner.py`. The core logic is very similar to the code snippet provided in our paper, with additional code added for performing tasks such as initialising a WandB run, setting up a logger, ensuring the working tree is clean for reproducibility, and saving results.
 5. Sync WandB results after experiments finish using `bash submit.sh sync_wandb.sbatch`. Experiments log to WandB in offline mode to avoid API rate limits with many concurrent jobs.
 
