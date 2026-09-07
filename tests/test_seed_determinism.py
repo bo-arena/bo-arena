@@ -1,16 +1,19 @@
 """Tests for randomness."""
 
+import jax
 import numpy as np
 import pytest
 
 from bo_arena.agents.random import Random
 from bo_arena.agents.registry import AGENTS
+from bo_arena.agents.saasbo import SAASBO
 from bo_arena.arena import Arena, RunResult
 from bo_arena.benchmarks.synthetic_benchmarks import Hartmann6D
+from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import generate_seed
 
 SKIP_REASONS = {
-    "saasbo": "too slow to run in the determinism suite",
+    "saasbo": "too slow here; its sampler is covered by the tests at the bottom",
     "bounce": "intricate setup is incompatible with this harness",
     "bounce_log_ei": "intricate setup is incompatible with this harness",
     "bounce_dsp": "intricate setup is incompatible with this harness",
@@ -150,3 +153,38 @@ def test_seed_spawning_hard_coded_values(
     assert generate_seed(gen_init_key) == expected_seeds[0]
     assert generate_seed(tell_init_key) == expected_seeds[1]
     assert generate_seed(ask_key) == expected_seeds[2]
+
+
+# SAASBO's sampler runs on NumPyro/JAX, meaning it is not controlled by
+# seed_everything and needs the PRNG to be keyed by an explicit argument.
+# The tests below double-check this implementation is working properly.
+SAASBO_KWARGS = {"warmup_steps": 8, "num_samples": 8, "thinning": 4}
+
+
+def _saasbo_lengthscales(seed: int) -> np.ndarray:
+    """Fit SAASBO on a fixed dataset and return the sampled lengthscales."""
+    rng = np.random.default_rng(42)
+    X = rng.random((12, 4))
+    agent = SAASBO(input_dim=4, **SAASBO_KWARGS)
+    agent.tell_initial_data(Dataset(X, (X**2).sum(axis=1)), seed)
+    ls = agent.model.covar_module.base_kernel.lengthscale
+    return ls.detach().cpu().double().numpy()
+
+
+def test_saasbo_same_seed_gives_same_samples() -> None:
+    """Two fits under one seed should draw the same MCMC samples."""
+    np.testing.assert_array_equal(_saasbo_lengthscales(7), _saasbo_lengthscales(7))
+
+
+def test_saasbo_different_seeds_give_different_samples() -> None:
+    """The seed must reach the sampler instead of just being dropped."""
+    assert not np.array_equal(_saasbo_lengthscales(7), _saasbo_lengthscales(8))
+
+
+@pytest.mark.skipif(
+    jax.default_backend() != "cpu", reason="needs a CPU-only JAX to trip the guard"
+)
+def test_saasbo_cuda_without_gpu_jax_raises() -> None:
+    """Asking for CUDA while JAX is on the CPU should fail explicitly."""
+    with pytest.raises(RuntimeError, match="JAX is running on the CPU"):
+        SAASBO(input_dim=4, device="cuda", **SAASBO_KWARGS)
