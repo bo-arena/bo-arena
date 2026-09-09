@@ -130,6 +130,10 @@ class SAASBO(AskTellAgent):
             disable_progbar=True,
             seed=seed,
         )
+        # Every fit is a new shape, so the cache is never used and keeps growing on CPU.
+        import jax  # noqa: PLC0415
+
+        jax.clear_caches()
 
     def tell_initial_data(self, data: Dataset, seed: int) -> None:
         """Provide initial observations to the agent and fit the SAAS GP model.
