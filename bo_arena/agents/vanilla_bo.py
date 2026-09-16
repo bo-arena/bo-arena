@@ -4,8 +4,7 @@ import numpy as np
 import torch
 from botorch.acquisition import (
     ExpectedImprovement,
-    LogExpectedImprovement,
-    qLogExpectedImprovement,
+    qLogNoisyExpectedImprovement,
 )
 from botorch.fit import fit_gpytorch_mll
 from botorch.generation import gen_candidates_scipy
@@ -131,10 +130,10 @@ class VanillaBO(AskTellAgent):
         self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # noqa: ARG002
-        """Select the next points to evaluate using Log Expected Improvement (LogEI).
+        """Select the next points to evaluate using qLogNEI.
 
-        This method optimizes the LogEI (or qLogEI for batch size > 1) acquisition
-        function.
+        This method optimizes the q-batch Log-Noisy-Expected-Improvement acquisition
+        function, matching the original code from Hvarfner et al. (2024).
 
         Args:
             n: Number of points to select (used for batch BO).
@@ -152,19 +151,12 @@ class VanillaBO(AskTellAgent):
             msg = "Model has not been initialized. Call tell_initial_data first."
             raise RuntimeError(msg)
 
-        best_f = self.train_y.max()
-
-        if n == 1:
-            acq_func = LogExpectedImprovement(
-                model=self.model,
-                best_f=best_f,
-            )
-        else:
-            # Use MC version for batch
-            acq_func = qLogExpectedImprovement(
-                model=self.model,
-                best_f=best_f,
-            )
+        # Hvarfner et al. use the MC-based qLogNEI for all batch sizes, including
+        # for q=1.
+        acq_func = qLogNoisyExpectedImprovement(
+            model=self.model,
+            X_baseline=self.train_X,
+        )
 
         candidates, _ = optimize_acqf(
             acq_func,
