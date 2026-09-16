@@ -47,7 +47,7 @@ esac
 
 # A socket is addressed by filesystem path, so putting the job id in the path makes
 # collisions impossible by construction. Requires an image with bencherscaffold >= 0.5.2.
-BENCHER_IMAGE="${BENCHER_IMAGE:-images/bencher_uds.sif}"
+BENCHER_IMAGE="${BENCHER_IMAGE:-images/bencher.sif}"
 
 # bencher is nine processes: the client-facing router plus eight benchmark services.
 BENCHER_SERVICES=(SERVER LASSO NODEP MAXSAT EBO MUJOCO SVM IOH BO4MOB)
@@ -70,8 +70,8 @@ if [ "$IS_SYNTHETIC" -eq 0 ]; then
 
     mkdir -p "$BENCHER_SOCKET_DIR"
 
-    # Not every filesystem supports AF_UNIX -- Lustre commonly does not -- and $TMPDIR is
-    # not guaranteed to be node-local storage.
+    # Not every filesystem supports AF_UNIX and $TMPDIR is not guaranteed to be
+    # node-local storage.
     probe_sock="$BENCHER_SOCKET_DIR/.probe.sock"
     nc -lU "$probe_sock" >/dev/null 2>&1 &
     probe_pid=$!
@@ -84,7 +84,7 @@ if [ "$IS_SYNTHETIC" -eq 0 ]; then
     rm -f "$probe_sock"
     if [ "$probe_ok" -ne 1 ]; then
         echo "Error: cannot create a unix socket in $BENCHER_SOCKET_DIR."
-        echo "That filesystem may not support AF_UNIX (Lustre often does not)."
+        echo "That filesystem may not support AF_UNIX."
         echo "Set TMPDIR to node-local storage."
         rm -rf "$BENCHER_SOCKET_DIR"
         exit 1
@@ -105,13 +105,15 @@ if [ "$IS_SYNTHETIC" -eq 0 ]; then
     # Start bencher as a background sidecar.
     singularity run --bind "$BENCHER_SOCKET_DIR" --env "$BENCHER_ENV" "$BENCHER_IMAGE" &
     BENCHER_PID=$!
-    trap 'kill $BENCHER_PID 2>/dev/null; rm -rf "$BENCHER_SOCKET_DIR"' EXIT TERM
+    trap 'kill $BENCHER_PID 2>/dev/null; rm -rf "$BENCHER_SOCKET_DIR"; exit' TERM
+    trap 'kill $BENCHER_PID 2>/dev/null; rm -rf "$BENCHER_SOCKET_DIR"' EXIT
 
     # Wait for Bencher services to be ready.
     echo "Starting up bencher server"
     n_sock=0
     for _ in $(seq 1 $BENCHER_SOCKET_TIMEOUT); do
         n_sock=$(( $(find "$BENCHER_SOCKET_DIR" -type s -name '*.sock' | wc -l) ))
+        kill -0 "$BENCHER_PID" 2>/dev/null || { echo "bencher sidecar died"; exit 1; }
         if [ "$n_sock" -eq ${#BENCHER_SERVICES[@]} ]; then break; fi
         sleep 1
     done
