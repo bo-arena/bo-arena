@@ -15,6 +15,23 @@ from bo_arena.utils.acqf_opt import get_log_ei_opt_kwargs
 from bo_arena.utils.dataset import Dataset
 
 
+def check_jax_sees_gpu() -> None:
+    """Raise error if JAX runs the sampler on the CPU while CUDA was asked for.
+
+    Raises:
+        RuntimeError: If JAX is on the CPU.
+    """
+    import jax  # noqa: PLC0415
+
+    if jax.default_backend() == "cpu":
+        msg = (
+            "SAASBO was submitted with device='cuda', but JAX is running on the CPU. "
+            "jax[cuda12] is a dependency on Linux, so either the environment is "
+            "stale (re-run uv sync) or the plugin failed to initialise here."
+        )
+        raise RuntimeError(msg)
+
+
 class SAASBO(AskTellAgent):
     """Sparse Axis-Aligned Subspace Bayesian Optimization (SAASBO).
 
@@ -55,7 +72,11 @@ class SAASBO(AskTellAgent):
 
         Raises:
             ValueError: If an unknown acqf_opt_strategy is given.
+            RuntimeError: If ``device`` is CUDA but JAX wants to sample on the CPU.
         """
+        if str(device).startswith("cuda"):
+            check_jax_sees_gpu()
+
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
@@ -90,8 +111,12 @@ class SAASBO(AskTellAgent):
         """Return a string representation of the agent."""
         return "saasbo"
 
-    def _fit_model(self) -> None:
-        """Fit a SAAS GP model using HMC (NUTS) sampling."""
+    def _fit_model(self, seed: int) -> None:
+        """Fit a SAAS GP model using HMC (NUTS) sampling.
+
+        Args:
+            seed: Random seed for reproducibility.
+        """
         self.model = SaasFullyBayesianSingleTaskGP(
             train_X=self.train_X,
             train_Y=self.train_y,
@@ -103,10 +128,14 @@ class SAASBO(AskTellAgent):
             num_samples=self.num_samples,
             thinning=self.thinning,
             disable_progbar=True,
-            jit_compile=True,
+            seed=seed,
         )
+        # Every fit is a new shape, so the cache is never used and keeps growing on CPU.
+        import jax  # noqa: PLC0415
 
-    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+        jax.clear_caches()
+
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:
         """Provide initial observations to the agent and fit the SAAS GP model.
 
         Args:
@@ -118,9 +147,9 @@ class SAASBO(AskTellAgent):
         self.train_y = torch.tensor(
             data.y, dtype=self.dtype, device=self.device
         ).unsqueeze(-1)
-        self._fit_model()
+        self._fit_model(seed)
 
-    def tell(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+    def tell(self, data: Dataset, seed: int) -> None:
         """Update the agent with new observations and refit the SAAS GP model.
 
         Args:
@@ -134,7 +163,7 @@ class SAASBO(AskTellAgent):
 
         self.train_X = torch.cat([self.train_X, new_X])
         self.train_y = torch.cat([self.train_y, new_y])
-        self._fit_model()
+        self._fit_model(seed)
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # noqa: ARG002
         """Select the next points to evaluate using Log Expected Improvement (qLogEI).
