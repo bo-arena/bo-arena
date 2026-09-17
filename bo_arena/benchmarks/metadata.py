@@ -70,6 +70,26 @@ BENCHMARK_METADATA: dict[str, BenchmarkMetadata] = {
             upper_bounds=np.ones(60),
         ),
     ),
+    "mujoco-walker": BenchmarkMetadata(
+        input_dim=102,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=2000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(102),
+            upper_bounds=np.ones(102),
+        ),
+    ),
+    "mujoco-halfcheetah": BenchmarkMetadata(
+        input_dim=102,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=30,
+        default_n_total_evaluations=2000,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(102),
+            upper_bounds=np.ones(102),
+        ),
+    ),
     "mopta08": BenchmarkMetadata(
         input_dim=124,
         input_type=ValueType.CONTINUOUS,
