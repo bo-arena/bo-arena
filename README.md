@@ -43,7 +43,7 @@ In order to run experiments, follow these steps:
 3. Obtain the Singularity images, which are expected to be in an `images/` directory.
     - **`bencher`**: build with `sbatch build_bencher_singularity.sbatch` or just pull the published image (easier than having to build it yourself). The socket support above requires `bencherscaffold >= 0.5.2` (previous versions bind to TCP ports instead of Unix sockets), which the latest published image satisfies:
       ```
-      singularity pull images/bencher_uds.sif docker://gaunab/bencher:latest
+      singularity pull images/bencher.sif docker://gaunab/bencher:latest
       ```
       Override the path with the `BENCHER_IMAGE` environment variable if you keep it elsewhere.
     - **`bo-arena`**: build with `sbatch build_bo_arena_singularity.sbatch`. Note that this needs `--fakeroot`; on clusters without such access, build the image elsewhere and copy it in.
