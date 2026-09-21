@@ -7,9 +7,6 @@ from botorch.fit import fit_gpytorch_mll
 from botorch.generation import gen_candidates_scipy
 from botorch.models import SingleTaskGP
 from botorch.models.kernels import InfiniteWidthBNNKernel
-from botorch.models.utils.gpytorch_modules import (
-    get_gaussian_likelihood_with_gamma_prior,
-)
 from botorch.optim import optimize_acqf
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from jaxtyping import Float
@@ -27,8 +24,7 @@ class IBNN(AskTellAgent):
     using the LogEI acquisition function.
 
     The kernel's weight and bias variances are fitted by marginal likelihood alongside
-    the mean and noise. See `IBNNLi2024` for the paper-faithful variant, which holds
-    them fixed.
+    the mean and noise, unlike in Li et al. (2024) which held them fixed.
 
     References:
         Lee, J., Bahri, Y., Novak, R., Schoenholz, S., Pennington, J., &
@@ -184,61 +180,3 @@ class IBNN(AskTellAgent):
         )
 
         return candidates.detach().cpu().numpy()
-
-
-class IBNNLi2024(IBNN):
-    """I-BNN agent using the surrogate configuration of Li et al. (2024).
-
-    Reproduces the surrogate as implemented in the original repository
-    (https://github.com/yucenli/bnn-bo), which differs from `IBNN` in two ways:
-
-    - The kernel's weight and bias variances are fixed at 10.0 and 1.6 rather than
-      fitted.
-    - The likelihood uses a Gamma(1.1, 0.05) noise prior, which was the SingleTaskGP
-      default in the BoTorch version they pinned (0.8.5). Current BoTorch defaults to a
-      LogNormal prior instead.
-
-    Note that the acquisition function is *not* matched: Li et al. use qEI whereas this
-    agent utilises the more numerically stable LogEI.
-
-    Reference:
-        Li, Y. L., Rudner, T. G. J., & Wilson, A. G. (2024). A Study of Bayesian
-        Neural Network Surrogates for Bayesian Optimization. International Conference
-        on Learning Representations (ICLR).
-    """
-
-    def __str__(self) -> str:
-        """Return a string representation of the agent."""
-        return f"ibnn_li2024_depth_{self.depth}"
-
-    def _build_kernel(self) -> InfiniteWidthBNNKernel:
-        """Construct the I-BNN kernel, with variances pinned to Li et al.'s values."""
-        covar_module = InfiniteWidthBNNKernel(depth=self.depth)
-        covar_module = covar_module.to(dtype=self.dtype, device=self.device)
-        covar_module.weight_var = torch.tensor(
-            10.0, dtype=self.dtype, device=self.device
-        )
-        covar_module.bias_var = torch.tensor(1.6, dtype=self.dtype, device=self.device)
-
-        # keep variances fixed, as in Li et al.
-        covar_module.raw_weight_var.requires_grad_(False)
-        covar_module.raw_bias_var.requires_grad_(False)
-
-        return covar_module
-
-    def _fit_model(self) -> None:
-        """Fit a SingleTaskGP with the I-BNN kernel, as configured by Li et al.
-
-        Only the mean constant and the noise are fitted; the kernel variances are held
-        fixed. `get_gaussian_likelihood_with_gamma_prior` supplies the Gamma(1.1, 0.05)
-        noise prior that was the SingleTaskGP default in BoTorch 0.8.5.
-        """
-        self.model = SingleTaskGP(
-            self.train_X,
-            self.train_y,
-            likelihood=get_gaussian_likelihood_with_gamma_prior(),
-            covar_module=self._build_kernel(),
-        )
-
-        mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
-        fit_gpytorch_mll(mll)

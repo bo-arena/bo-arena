@@ -3,22 +3,19 @@
 from functools import partial
 
 from .bounce import Bounce
-from .historic_bo import HistoricBO
-from .ibnn import IBNN, IBNNLi2024
+from .ibnn import IBNN
 from .linear import LinearBO
 from .random import Random
 from .saasbo import SAASBO
 from .turbo import TuRBO, TuRBOLogEI
-from .vanilla_bo import BestWindowVanillaBO, VanillaBO, VanillaBOYu2026, WindowVanillaBO
+from .vanilla_bo import VanillaBO
 
 AGENTS = {
     "bounce": Bounce,
     "bounce_log_ei": partial(Bounce, use_log_ei=True),
     "bounce_dsp": partial(Bounce, use_dsp=True),
     "bounce_log_ei_dsp": partial(Bounce, use_log_ei=True, use_dsp=True),
-    "historic_bo": HistoricBO,
     "ibnn": IBNN,
-    "ibnn_li2024": IBNNLi2024,
     "linear_bo": LinearBO,
     "random": Random,
     "saasbo": SAASBO,
@@ -27,7 +24,4 @@ AGENTS = {
     "turbo_log_ei": TuRBOLogEI,
     "turbo_log_ei_dsp": partial(TuRBOLogEI, use_dsp=True),
     "vanilla_bo": VanillaBO,
-    "vanilla_bo_yu_2026": VanillaBOYu2026,
-    "best_window_vanilla_bo": BestWindowVanillaBO,
-    "window_vanilla_bo": WindowVanillaBO,
 }
