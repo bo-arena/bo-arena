@@ -34,7 +34,7 @@ class VanillaBO(AskTellAgent):
         acqf_opt_strategy: str = "default",
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
-        **kwargs: object,  # noqa: ARG002
+        **kwargs: object,  # ruff: ignore[unused-method-argument]
     ) -> None:
         """Initialize the VanillaBO agent.
 
@@ -95,7 +95,7 @@ class VanillaBO(AskTellAgent):
         mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
         fit_gpytorch_mll(mll)
 
-    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+    def tell_initial_data(self, data: Dataset, seed: int) -> None:  # ruff: ignore[unused-method-argument]
         """Provide initial observations to the agent and fit the SingleTaskGP model.
 
         Args:
@@ -109,7 +109,7 @@ class VanillaBO(AskTellAgent):
         ).unsqueeze(-1)
         self._fit_model()
 
-    def tell(self, data: Dataset, seed: int) -> None:  # noqa: ARG002
+    def tell(self, data: Dataset, seed: int) -> None:  # ruff: ignore[unused-method-argument]
         """Update the agent with new observations and refit the SingleTaskGP model.
 
         Args:
@@ -125,7 +125,7 @@ class VanillaBO(AskTellAgent):
         self.train_y = torch.cat([self.train_y, new_y])
         self._fit_model()
 
-    def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # noqa: ARG002
+    def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # ruff: ignore[unused-method-argument]
         """Select the next points to evaluate using qLogNEI.
 
         This method optimizes the q-batch Log-Noisy-Expected-Improvement acquisition
