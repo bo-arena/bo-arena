@@ -7,7 +7,7 @@ from .ibnn import IBNN
 from .linear import LinearBO
 from .random import Random
 from .saasbo import SAASBO
-from .turbo import TuRBO, TuRBOLogEI
+from .turbo import TuRBO
 from .vanilla_bo import VanillaBO
 
 AGENTS = {
@@ -20,8 +20,5 @@ AGENTS = {
     "random": Random,
     "saasbo": SAASBO,
     "turbo": TuRBO,
-    "turbo_dsp": partial(TuRBO, use_dsp=True),
-    "turbo_log_ei": TuRBOLogEI,
-    "turbo_log_ei_dsp": partial(TuRBOLogEI, use_dsp=True),
     "vanilla_bo": VanillaBO,
 }
