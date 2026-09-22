@@ -12,7 +12,6 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from jaxtyping import Float
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
-from bo_arena.utils.acqf_opt import get_log_ei_opt_kwargs
 from bo_arena.utils.dataset import Dataset
 
 
@@ -39,7 +38,6 @@ class IBNN(AskTellAgent):
     def __init__(
         self,
         input_dim: int,
-        acqf_opt_strategy: str = "default",
         depth: int = 3,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
@@ -49,8 +47,6 @@ class IBNN(AskTellAgent):
 
         Args:
             input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
-            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
-              "default", "no_raasp" or "botorch_raasp".
             depth: Depth of the network whose infinite-width limit defines the kernel.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
@@ -66,25 +62,19 @@ class IBNN(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
-        if acqf_opt_strategy == "default":
-            # Use the same opt kwargs as Vanilla BO
-            self.opt_kwargs = {
-                "raw_samples": 512,
-                "num_restarts": 4,
-                "retry_on_optimization_warning": False,
-                "options": {
-                    "nonnegative": False,
-                    "sample_around_best": True,
-                    "sample_around_best_sigma": 0.1,
-                    "maxiter": 300,
-                    "batch_limit": 64,
-                },
-            }
-        elif acqf_opt_strategy in {"no_raasp", "botorch_raasp"}:
-            self.opt_kwargs = get_log_ei_opt_kwargs(acqf_opt_strategy)
-        else:
-            msg = f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}"
-            raise ValueError(msg)
+        # Use the same opt kwargs as Vanilla BO
+        self.opt_kwargs = {
+            "raw_samples": 2500,
+            "num_restarts": 5,
+            "retry_on_optimization_warning": False,
+            "options": {
+                "nonnegative": False,
+                "sample_around_best": True,
+                "sample_around_best_sigma": 0.1,
+                "maxiter": 300,
+                "batch_limit": 64,
+            },
+        }
 
         self.depth = depth
         self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
