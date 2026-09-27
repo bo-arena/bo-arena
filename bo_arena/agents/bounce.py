@@ -8,11 +8,8 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
-from botorch import gen_candidates_scipy
 from botorch.acquisition import (
-    ExpectedImprovement,
     LogExpectedImprovement,
-    qExpectedImprovement,
     qLogExpectedImprovement,
 )
 from botorch.exceptions import ModelFittingError
@@ -28,7 +25,6 @@ from jaxtyping import Float
 from torch.quasirandom import SobolEngine
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
-from bo_arena.utils.acqf_opt import get_candidates
 from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import generate_seed
 
@@ -434,7 +430,13 @@ class Bounce(AskTellAgent):
     "Bounce: Reliable High-Dimensional Bayesian Optimization for Combinatorial and
     Mixed Spaces" by Papenmeier et al. (2023). Bounce starts optimization in a
     low-dimensional random subspace and adaptively expands the embedding until the
-    full input dimensionality is reached.
+    full input dimensionality is reached. Changes made to the original implementation
+    include:
+    - Switching (q)ExpectedImprovement to (q)LogExpectedImprovement due to improved
+      numerical stability.
+    - Increasing `raw_samples` from 512 to 5000 and decreasing `num_restarts` from 10
+      to 5 when performing acquisition function optimisation for consistency with the
+      other agents.
 
     Reference:
         Papenmeier, L., Nardi, L., Poloczek, M. (2023). Bounce: Reliable
@@ -446,9 +448,6 @@ class Bounce(AskTellAgent):
         self,
         input_dim: int,
         n_total_evaluations: int,
-        acqf_opt_strategy: str = "default",
-        use_dsp: bool = False,  # ruff: ignore[boolean-default-value-positional-argument]
-        use_log_ei: bool = False,  # ruff: ignore[boolean-default-value-positional-argument]
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         **kwargs: Any,  # ruff: ignore[any-type, unused-method-argument]
@@ -458,15 +457,6 @@ class Bounce(AskTellAgent):
         Args:
             input_dim: Dimensionality of the input space (assumed [0,1]^d).
             n_total_evaluations: Total evaluation budget.
-            acqf_opt_strategy: Strategy for optimizing the acquisition function. Can be
-              "default", "no_raasp", or "raasp". Setting "default" preserves
-              the original Bounce optimizer settings (raw_samples=512, num_restarts=10).
-            use_dsp: If True, use BoTorch's default SingleTaskGP (Hvarfner's
-              Dimensionality-Scaled Prior) instead of the Matern-2.5 + ARD + Gamma
-              priors used in the original Bounce paper.
-            use_log_ei: If True, use LogEI (or qLogEI if batch size > 1) instead of
-              standard EI for improved numerical stability. Note that the original
-              paper used standard EI, so the default is False to preserve that behavior.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             kwargs: Additional arguments (ignored).
@@ -477,8 +467,6 @@ class Bounce(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
-        self.use_dsp = use_dsp
-        self.use_log_ei = use_log_ei
         self.n_total_evaluations = n_total_evaluations
         if self.n_total_evaluations is None:
             msg = (
@@ -486,14 +474,6 @@ class Bounce(AskTellAgent):
                 "Pass it as a keyword argument to the constructor."
             )
             raise RuntimeError(msg)
-        if acqf_opt_strategy in {"default", "no_raasp", "raasp"}:
-            self.acqf_opt_strategy = acqf_opt_strategy
-        else:
-            msg = (
-                f"Unknown acqf_opt_strategy: {acqf_opt_strategy!r}. "
-                "Note that the bounce agent doesn't support botorch_raasp."
-            )
-            raise ValueError(msg)
 
         self.train_X: torch.Tensor | None = None  # stored in [0, 1]^target_dim
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
@@ -512,40 +492,26 @@ class Bounce(AskTellAgent):
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""
-        base_str = "bounce"
-        if self.use_log_ei:
-            base_str += "_log_ei"
-        if self.use_dsp:
-            base_str += "_dsp"
-        return base_str
+        return "bounce"
 
     def _fit_model(self) -> None:
-        """Fit a SingleTaskGP model in the low-dimensional subspace.
-
-        When use_dsp=False, uses Matern-2.5 with ARD and Gamma priors on train_X
-        which is stored in [0,1]^target_dim. When use_dsp=True, uses BoTorch's
-        default SingleTaskGP (Hvarfner's DSP). Falls back to Adam if standard
-        fitting fails.
-        """
-        if self.use_dsp:
-            self.model = SingleTaskGP(self.train_X, self.train_y)
-        else:
-            target_dim = self.train_X.shape[-1]
-            likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.1, 0.05))
-            covar_module = ScaleKernel(
-                MaternKernel(
-                    nu=2.5,
-                    ard_num_dims=target_dim,
-                    lengthscale_prior=GammaPrior(1.5, 0.1),
-                ),
-                outputscale_prior=GammaPrior(1.5, 0.5),
-            )
-            self.model = SingleTaskGP(
-                self.train_X,
-                self.train_y,
-                covar_module=covar_module,
-                likelihood=likelihood,
-            )
+        """Fit a SingleTaskGP model in the low-dimensional subspace."""
+        target_dim = self.train_X.shape[-1]
+        likelihood = GaussianLikelihood(noise_prior=GammaPrior(1.1, 0.05))
+        covar_module = ScaleKernel(
+            MaternKernel(
+                nu=2.5,
+                ard_num_dims=target_dim,
+                lengthscale_prior=GammaPrior(1.5, 0.1),
+            ),
+            outputscale_prior=GammaPrior(1.5, 0.5),
+        )
+        self.model = SingleTaskGP(
+            self.train_X,
+            self.train_y,
+            covar_module=covar_module,
+            likelihood=likelihood,
+        )
 
         mll = ExactMarginalLogLikelihood(self.model.likelihood, self.model)
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
@@ -584,11 +550,7 @@ class Bounce(AskTellAgent):
             A tuple of (tr_lb, tr_ub) tensors in [0,1]^target_dim.
         """
         # Scale the TR to be proportional to the lengthscales
-        if self.use_dsp:
-            # With DSP enabled, there is no ScaleKernel wrapping the base kernel
-            lengthscale = self.model.covar_module.lengthscale
-        else:
-            lengthscale = self.model.covar_module.base_kernel.lengthscale
+        lengthscale = self.model.covar_module.base_kernel.lengthscale
         weights = lengthscale.squeeze().detach()
         if weights.ndim > 0:
             weights = weights / weights.mean()
@@ -785,9 +747,9 @@ class Bounce(AskTellAgent):
             self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
-        """Select candidate points via (log)(q)EI optimization in the trust region.
+        """Select candidate points via log(q)EI optimization in the trust region.
 
-        Optimizes (log)(q)EI over the trust region in the low-dimensional subspace,
+        Optimizes log(q)EI over the trust region in the low-dimensional subspace,
         then projects candidates back to the full space.
 
         Args:
@@ -823,83 +785,21 @@ class Bounce(AskTellAgent):
         )
         bounds = torch.stack([tr_lb, tr_ub], dim=0)
 
-        # Optimize (log)(q)EI over the trust region
+        # Optimize log(q)EI over the trust region
         best_f = float(self.train_y.max().item())
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
-                acqfn_class = (
-                    LogExpectedImprovement if self.use_log_ei else ExpectedImprovement
+                acqf = LogExpectedImprovement(model=self.model, best_f=best_f)
+                candidates, _ = optimize_acqf(
+                    acq_function=acqf,
+                    bounds=bounds,
+                    q=1,
+                    retry_on_optimization_warning=False,
+                    raw_samples=5000,
+                    num_restarts=5,
+                    options={"nonnegative": False, "maxiter": 300, "batch_limit": 64},
                 )
-                acqf = acqfn_class(model=self.model, best_f=best_f)
-                if self.acqf_opt_strategy == "default":
-                    candidates, _ = optimize_acqf(
-                        acq_function=acqf,
-                        bounds=bounds,
-                        q=1,
-                        raw_samples=512,
-                        num_restarts=10,
-                        options={"batch_limit": 64},
-                    )
-                elif self.acqf_opt_strategy == "no_raasp":
-                    candidates, _ = optimize_acqf(
-                        acq_function=acqf,
-                        bounds=bounds,
-                        q=1,
-                        gen_candidates=gen_candidates_scipy,
-                        raw_samples=5000,
-                        num_restarts=5,
-                        retry_on_optimization_warning=False,
-                        options={"batch_limit": 64},
-                    )
-                elif self.acqf_opt_strategy == "raasp":
-                    # Perform RAASP initialisation ourself due to issues with
-                    # sample_around_best=True and trust regions in the current BoTorch
-                    # implementation.
-                    X_cand = get_candidates(
-                        n_candidates=5000,
-                        lb=tr_lb,
-                        ub=tr_ub,
-                        best_x=x_center,
-                        seed=seed,
-                        method="raasp",
-                        dtype=self.dtype,
-                        device=self.device,
-                    )
-
-                    # Score all candidates and keep the top 5 as initial
-                    # points for the gradient-based optimizer.
-                    with torch.no_grad():
-                        acq_vals = torch.cat([
-                            acqf(batch.unsqueeze(1)) for batch in X_cand.split(64)
-                        ])
-                    top_idx = acq_vals.topk(5).indices
-                    X_init = X_cand[top_idx].unsqueeze(1)
-
-                    tr_bounds = torch.stack([tr_lb, tr_ub], dim=0)
-                    candidates, _ = optimize_acqf(
-                        acq_function=acqf,
-                        bounds=tr_bounds,
-                        q=1,
-                        gen_candidates=gen_candidates_scipy,
-                        batch_initial_conditions=X_init,
-                        num_restarts=5,
-                        retry_on_optimization_warning=False,
-                        options={
-                            "batch_limit": 64,
-                        },
-                    )
-                else:
-                    msg = f"Unknown acqf_opt_strategy: {self.acqf_opt_strategy!r}"
-                    raise ValueError(msg)
-
             else:
-                if self.acqf_opt_strategy != "default":
-                    msg = (
-                        "The 'default' acqf_opt_strategy must be used for batch "
-                        "optimization. "
-                        f"Received: {self.acqf_opt_strategy!r}"
-                    )
-                    raise ValueError(msg)
                 # Sequential greedy with X_pending
                 sampler = SobolQMCNormalSampler(
                     sample_shape=torch.Size([1024]), seed=seed
@@ -907,12 +807,7 @@ class Bounce(AskTellAgent):
                 cand_list: list[torch.Tensor] = []
                 for _ in range(n):
                     x_pending = torch.cat(cand_list, dim=0) if cand_list else None
-                    acqfn_class = (
-                        qLogExpectedImprovement
-                        if self.use_log_ei
-                        else qExpectedImprovement
-                    )
-                    acqf = acqfn_class(
+                    acqf = qLogExpectedImprovement(
                         model=self.model,
                         best_f=best_f,
                         sampler=sampler,
@@ -922,9 +817,14 @@ class Bounce(AskTellAgent):
                         acq_function=acqf,
                         bounds=bounds,
                         q=1,
-                        raw_samples=512,
-                        num_restarts=10,
-                        options={"batch_limit": 64},
+                        retry_on_optimization_warning=False,
+                        raw_samples=5000,
+                        num_restarts=5,
+                        options={
+                            "nonnegative": False,
+                            "maxiter": 300,
+                            "batch_limit": 64,
+                        },
                     )
                     cand_list.append(x_new)
                 candidates = torch.cat(cand_list, dim=0)
