@@ -258,9 +258,6 @@ class LinearBO(AskTellAgent):
             normalize_lengthscale: If True, use ``softmax(ls).sqrt()`` as the effective
                 lengthscale, constraining the ARD vector to unit L2 norm.
             kwargs: Additional arguments.
-
-        Raises:
-            ValueError: If an unknown acqf_opt_strategy is given.
         """
         self.dtype = dtype
         self.device = device

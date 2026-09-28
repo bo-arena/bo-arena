@@ -48,12 +48,6 @@ def parse_args() -> argparse.Namespace:
         help=f"Agent to use. Available: {', '.join(AGENTS.keys())}",
     )
     parser.add_argument(
-        "--acqf-opt-strategy",
-        type=str,
-        default="default",
-        choices=["default", "no_raasp", "raasp", "botorch_raasp"],
-    )
-    parser.add_argument(
         "--seed-idx",
         type=int,
         required=True,
@@ -161,7 +155,6 @@ def main() -> None:  # ruff: ignore[too-many-statements]
     dtype = torch.float32 if args.dtype == "float32" else torch.float64
     agent = agent_class(
         input_dim=input_dim,
-        acqf_opt_strategy=args.acqf_opt_strategy,
         n_total_evaluations=n_tot,
         device=args.device,
         dtype=dtype,
@@ -171,11 +164,10 @@ def main() -> None:  # ruff: ignore[too-many-statements]
         raise ValueError(msg)
 
     # Build experiment directory and file paths
-    # Structure: results/{problem}/{agent}/acqf_opt_{strategy}/[batch_{N}/]
+    # Structure: results/{problem}/{agent}/[batch_{N}/]
     problem_name = args.problem
     agent_name = str(agent)
-    acqf_opt_dir = f"acqf_opt_{args.acqf_opt_strategy}"
-    experiment_dir = RESULTS_DIR / problem_name / agent_name / acqf_opt_dir
+    experiment_dir = RESULTS_DIR / problem_name / agent_name
     if args.batch_size > 1:
         experiment_dir = experiment_dir / f"batch_{args.batch_size}"
     experiment_dir.mkdir(parents=True, exist_ok=True)
@@ -212,7 +204,6 @@ def main() -> None:  # ruff: ignore[too-many-statements]
     config = {
         "problem": problem_name,
         "agent": agent_name,
-        "acqf_opt_strategy": args.acqf_opt_strategy,
         "n_initial_points": n_init,
         "n_total_evaluations": n_tot,
         "batch_size": args.batch_size,
@@ -237,7 +228,7 @@ def main() -> None:  # ruff: ignore[too-many-statements]
             logging.FileHandler(log_file),
         ],
     )
-    wandb_group = f"{problem_name}/{agent_name}/{acqf_opt_dir}"
+    wandb_group = f"{problem_name}/{agent_name}"
     if args.batch_size > 1:
         wandb_group += f"/batch_{args.batch_size}"
     logger.info(f"Experiment: {wandb_group}, seed={seed}")

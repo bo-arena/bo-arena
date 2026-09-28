@@ -462,18 +462,15 @@ class Bounce(AskTellAgent):
             kwargs: Additional arguments (ignored).
 
         Raises:
-            ValueError: If an unknown acqf_opt_strategy is given.
+            ValueError: If n_total_evaluations is set to None.
         """
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
         self.n_total_evaluations = n_total_evaluations
         if self.n_total_evaluations is None:
-            msg = (
-                "n_total_evaluations is required for Bounce. "
-                "Pass it as a keyword argument to the constructor."
-            )
-            raise RuntimeError(msg)
+            msg = "Bounce requires n_total_evaluations to be an int, got None."
+            raise ValueError(msg)
 
         self.train_X: torch.Tensor | None = None  # stored in [0, 1]^target_dim
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)
@@ -487,7 +484,7 @@ class Bounce(AskTellAgent):
         #   Arena / external   : [0, 1]^input_dim
         #   Subspace / train_X : [0, 1]^target_dim  (GP is trained in this space)
         # Conversion between the two goes via [-1, 1] where S is defined; see
-        # project_up / project_down in baxus_bounce_utils.
+        # project_up / project_down.
         self.S: Float[torch.Tensor, "target_dim input_dim"] | None = None
 
     def __str__(self) -> str:

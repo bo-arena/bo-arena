@@ -41,9 +41,6 @@ class VanillaBO(AskTellAgent):
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             kwargs: Additional arguments.
-
-        Raises:
-            ValueError: If an unknown acqf_opt_strategy is given.
         """
         self.dtype = dtype
         self.device = device

@@ -34,12 +34,6 @@ def parse_args() -> argparse.Namespace:
         choices=list(AGENTS.keys()),
         help=f"Agent to use. Available: {', '.join(AGENTS.keys())}",
     )
-    parser.add_argument(
-        "--acqf-opt-strategy",
-        type=str,
-        default="default",
-        choices=["default", "no_raasp", "raasp"],
-    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
         "--n-init",
@@ -125,7 +119,6 @@ def main() -> None:
     dtype = torch.float32 if args.dtype == "float32" else torch.float64
     agent = agent_class(
         input_dim=input_dim,
-        acqf_opt_strategy=args.acqf_opt_strategy,
         n_total_evaluations=n_tot,
         device=args.device,
         dtype=dtype,

@@ -9,7 +9,6 @@ Usage:
     python slurm/submit.py \
         --problem rover,svm \
         --agent vanilla_bo,saasbo \
-        --acqf-opt-strategy default,raasp \
         --seed-range 0-9 \
         --dry-run
 
@@ -17,7 +16,6 @@ Usage:
     python slurm/submit.py \
         --problem rover,svm \
         --agent vanilla_bo,saasbo \
-        --acqf-opt-strategy default,raasp \
         --seed-range 0-9
 """
 
@@ -235,7 +233,6 @@ def resolve_time(agent: str, problem: str) -> str:
 def build_sbatch_cmd(
     problem: str,
     agent: str,
-    acqf_opt_strategy: str,
     seed_range: str,
     config: dict[str, str],
     batch_size: int | None = None,
@@ -253,7 +250,6 @@ def build_sbatch_cmd(
         "ALL",
         f"PROBLEM={problem}",
         f"AGENT={agent}",
-        f"ACQF_OPT_STRATEGY={acqf_opt_strategy}",
         f"DEVICE={profile['device']}",
     ]
     if n_evals is not None:
@@ -307,12 +303,6 @@ def main() -> None:
         help="Comma-separated agent names (e.g., vanilla_bo,saasbo)",
     )
     parser.add_argument(
-        "--acqf-opt-strategy",
-        type=str,
-        required=True,
-        help="Comma-separated strategies (e.g., default,raasp)",
-    )
-    parser.add_argument(
         "--seed-range",
         type=str,
         default="0-9",
@@ -354,9 +344,8 @@ def main() -> None:
 
     problems = [s.strip() for s in args.problem.split(",")]
     agents = [s.strip() for s in args.agent.split(",")]
-    strategies = [s.strip() for s in args.acqf_opt_strategy.split(",")]
 
-    grid = list(itertools.product(problems, agents, strategies))
+    grid = list(itertools.product(problems, agents))
 
     print(
         f"{'[DRY RUN] ' if args.dry_run else ''}Submitting {len(grid)} job array(s) "
@@ -366,11 +355,10 @@ def main() -> None:
     submitted = 0
     failed = 0
 
-    for problem, agent, strategy in grid:
+    for problem, agent in grid:
         cmd = build_sbatch_cmd(
             problem,
             agent,
-            strategy,
             args.seed_range,
             config,
             batch_size=args.batch_size,
@@ -380,9 +368,7 @@ def main() -> None:
         profile = get_profile(agent, problem)
         mem = resolve_mem(agent, problem)
         time = resolve_time(agent, problem)
-        label = (
-            f"  {problem} / {agent} / {strategy}  [{profile['device']}, {mem}, {time}]"
-        )
+        label = f"  {problem} / {agent}  [{profile['device']}, {mem}, {time}]"
 
         if args.dry_run:
             print(label)

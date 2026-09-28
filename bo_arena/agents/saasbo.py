@@ -66,7 +66,6 @@ class SAASBO(AskTellAgent):
             kwargs: Additional arguments.
 
         Raises:
-            ValueError: If an unknown acqf_opt_strategy is given.
             RuntimeError: If ``device`` is CUDA but JAX wants to sample on the CPU.
         """
         if str(device).startswith("cuda"):

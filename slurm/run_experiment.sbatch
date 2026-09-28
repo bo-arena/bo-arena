@@ -9,7 +9,6 @@
 # Required environment variables (set via submit.py --export):
 #   PROBLEM            - problem name (e.g., "lasso-dna")
 #   AGENT              - agent name (e.g., "vanilla_bo")
-#   ACQF_OPT_STRATEGY  - acquisition function optimization strategy (e.g., "default")
 #   DEVICE             - "cpu" or "cuda"
 #
 # Optional environment variables:
@@ -21,8 +20,8 @@ source "$(pwd)/slurm/preamble.sh"
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-if [ -z "$PROBLEM" ] || [ -z "$AGENT" ] || [ -z "$ACQF_OPT_STRATEGY" ] || [ -z "$DEVICE" ]; then
-    echo "Error: PROBLEM, AGENT, ACQF_OPT_STRATEGY, and DEVICE must be set."
+if [ -z "$PROBLEM" ] || [ -z "$AGENT" ] || [ -z "$DEVICE" ]; then
+    echo "Error: PROBLEM, AGENT, and DEVICE must be set."
     echo "Use submit.py to launch experiments."
     exit 1
 fi
@@ -142,7 +141,7 @@ else
 fi
 
 # Run the experiment (SLURM_ARRAY_TASK_ID indexes into EXPERIMENT_SEEDS)
-echo "Running: problem=$PROBLEM, agent=$AGENT, acqf_opt_strategy=$ACQF_OPT_STRATEGY, device=$DEVICE, seed_idx=$SLURM_ARRAY_TASK_ID"
+echo "Running: problem=$PROBLEM, agent=$AGENT, device=$DEVICE, seed_idx=$SLURM_ARRAY_TASK_ID"
 singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --bind "$BENCHER_SOCKET_DIR" \
@@ -157,7 +156,6 @@ singularity exec \
         /opt/venv/bin/python scripts/experiment_runner.py \
             --problem $PROBLEM \
             --agent $AGENT \
-            --acqf-opt-strategy $ACQF_OPT_STRATEGY \
             --seed-idx $SLURM_ARRAY_TASK_ID \
             --address $BENCHER_ADDRESS \
             --device $DEVICE \

@@ -53,7 +53,7 @@ class IBNN(AskTellAgent):
             kwargs: Additional arguments.
 
         Raises:
-            ValueError: If `depth` is negative or `acqf_opt_strategy` is invalid.
+            ValueError: If `depth` is negative.
         """
         if depth < 0:
             msg = f"depth must be non-negative, got {depth}."
