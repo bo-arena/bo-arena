@@ -13,9 +13,6 @@ from bo_arena.utils.miscellaneous import generate_seed
 
 SKIP_REASONS = {
     "bounce": "intricate setup is incompatible with this harness",
-    "bounce_log_ei": "intricate setup is incompatible with this harness",
-    "bounce_dsp": "intricate setup is incompatible with this harness",
-    "bounce_log_ei_dsp": "intricate setup is incompatible with this harness",
 }
 AGENT_PARAMS = [
     pytest.param(name, marks=pytest.mark.skip(reason=SKIP_REASONS[name]))

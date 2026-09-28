@@ -1,8 +1,8 @@
 """Submit experiment grid to SLURM.
 
-Computes the cross product of problems, agents, and strategies, looks up
-the right SLURM resources for each combination, and submits one job array
-per combination (one array task per seed).
+Computes the cross product of problems and agents, looks up the right SLURM resources
+for each combination, and submits one job array per combination (one array task per
+seed).
 
 Usage:
     # Preview what would be submitted:
