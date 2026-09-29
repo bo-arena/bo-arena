@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.18.1
+#       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: bo-arena (3.13.5)
 #     language: python
 #     name: python3
 # ---
@@ -48,11 +48,12 @@ print(f"Result two: {result_two}")
 
 # %%
 # Now using the bo-arena BencherProblem wrapper
-
 lasso_problem = BencherProblem(name="lasso-dna")
 point_one = np.array([0.5] * 180).reshape(1, -1)
 point_two = np.array([0.1] * 180).reshape(1, -1)
 points = np.vstack([point_one, point_two])
 res = lasso_problem.evaluate_points(points)
-print(f"Result one: {res[0]}")
-print(f"Result two: {res[1]}")
+print(f"Result one: {res.objectives[0,0]}")
+print(f"Result two: {res.objectives[1,0]}")
+
+# %%
