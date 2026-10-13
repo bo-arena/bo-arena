@@ -14,4 +14,4 @@ export APPTAINER_TMPDIR=$SCRATCH
 
 # Build the Singularity container
 mkdir -p images
-singularity build images/bencher.sif docker://gaunab/bencher:latest
+singularity pull images/bencher.sif docker://gaunab/bencher:latest
