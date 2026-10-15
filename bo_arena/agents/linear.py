@@ -241,6 +241,8 @@ class LinearBO(AskTellAgent):
         Conference on Artificial Intelligence and Statistics (AISTATS).
     """
 
+    author_verified = True
+
     def __init__(
         self,
         input_dim: int,

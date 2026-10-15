@@ -1,6 +1,7 @@
 """Base class for ask-tell agents."""
 
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 import numpy as np
 from jaxtyping import Float
@@ -26,11 +27,22 @@ class AskTellAgent(ABC):
     Agents operate in the unit hypercube [0, 1]^D: all points passed to and returned
     by the agent are in [0, 1]^D, and the Arena handles mapping to and from the
     problem's input space.
+
+    Attributes:
+        author_verified: Whether the implementation has been verified by the original
+            authors of the method.
     """
+
+    author_verified: ClassVar[bool] = False
 
     @abstractmethod
     def __str__(self) -> str:
-        """Return a string representation of the agent."""
+        """Return a string representation of the agent.
+
+        Note:
+            This is used to form the directory for saving experimental results for the
+            agent in `scripts/experiment_runner.py`.
+        """
         raise NotImplementedError
 
     @abstractmethod
