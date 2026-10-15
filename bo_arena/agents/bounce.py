@@ -8,10 +8,7 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
-from botorch.acquisition import (
-    LogExpectedImprovement,
-    qLogExpectedImprovement,
-)
+from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.exceptions import ModelFittingError
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
@@ -782,11 +779,12 @@ class Bounce(AskTellAgent):
         )
         bounds = torch.stack([tr_lb, tr_ub], dim=0)
 
-        # Optimize log(q)EI over the trust region
-        best_f = float(self.train_y.max().item())
+        # Optimize qLogNEI over the trust region for consistency with Vanilla BO and Ax
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
-                acqf = LogExpectedImprovement(model=self.model, best_f=best_f)
+                acqf = qLogNoisyExpectedImprovement(
+                    model=self.model, X_baseline=self.train_X
+                )
                 candidates, _ = optimize_acqf(
                     acq_function=acqf,
                     bounds=bounds,
@@ -804,9 +802,9 @@ class Bounce(AskTellAgent):
                 cand_list: list[torch.Tensor] = []
                 for _ in range(n):
                     x_pending = torch.cat(cand_list, dim=0) if cand_list else None
-                    acqf = qLogExpectedImprovement(
+                    acqf = qLogNoisyExpectedImprovement(
                         model=self.model,
-                        best_f=best_f,
+                        X_baseline=self.train_X,
                         sampler=sampler,
                         X_pending=x_pending,
                     )

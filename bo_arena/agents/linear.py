@@ -6,7 +6,7 @@ from typing import override
 import gpytorch
 import numpy as np
 import torch
-from botorch.acquisition import LogExpectedImprovement, qLogExpectedImprovement
+from botorch.acquisition import qLogNoisyExpectedImprovement
 from botorch.fit import fit_gpytorch_mll
 from botorch.generation import gen_candidates_scipy
 from botorch.models import SingleTaskGP
@@ -370,19 +370,10 @@ class LinearBO(AskTellAgent):
             msg = "Model has not been initialized. Call tell_initial_data first."
             raise RuntimeError(msg)
 
-        best_f = self.train_y.max()
-
-        if n == 1:
-            acq_func = LogExpectedImprovement(
-                model=self.model,
-                best_f=best_f,
-            )
-        else:
-            # Use MC version for batch
-            acq_func = qLogExpectedImprovement(
-                model=self.model,
-                best_f=best_f,
-            )
+        # Use qLogNEI for consistency with Vanilla BO and Ax
+        acq_func = qLogNoisyExpectedImprovement(
+            model=self.model, X_baseline=self.train_X
+        )
 
         candidates, _ = optimize_acqf(
             acq_func,
