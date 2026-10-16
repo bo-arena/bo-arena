@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "jaxtyping>=0.3.11",
-    "wandb>=0.30",
+    "wandb>=0.31",
     "numpy>=2.5.4",
     "scipy>=1.18.1",
     "bencherscaffold@git+https://github.com/LeoIV/BencherScaffold@c119035a059cf34c82c3183fa53634070df3a3d6",
