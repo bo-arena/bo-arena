@@ -20,7 +20,7 @@ class IBNN(AskTellAgent):
 
     Fits a GP whose covariance is the kernel of an infinite-width fully-connected ReLU
     network (Lee et al., 2018), as used for BO by Li et al. (2024), and selects points
-    using the LogEI acquisition function.
+    using the qLogNEI acquisition function.
 
     The kernel's weight and bias variances are fitted by marginal likelihood alongside
     the mean and noise, unlike in Li et al. (2024) which held them fixed.
