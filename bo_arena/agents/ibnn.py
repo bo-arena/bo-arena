@@ -133,10 +133,9 @@ class IBNN(AskTellAgent):
         self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # ruff: ignore[unused-method-argument]
-        """Select the next points to evaluate using Log Expected Improvement (LogEI).
+        """Select the next points to evaluate using qLogNoisyExpectedImprovement.
 
-        This method optimizes the LogEI (or qLogEI for batch size > 1) acquisition
-        function.
+        This method optimizes the qLogNEI acquisition function.
 
         Args:
             n: Number of points to select (used for batch BO).

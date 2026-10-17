@@ -429,8 +429,8 @@ class Bounce(AskTellAgent):
     low-dimensional random subspace and adaptively expands the embedding until the
     full input dimensionality is reached. Changes made to the original implementation
     include:
-    - Switching (q)ExpectedImprovement to (q)LogExpectedImprovement due to improved
-      numerical stability.
+    - Switching (q)ExpectedImprovement to qLogNoisyExpectedImprovement due to improved
+      numerical stability, and for consistency with Vanilla BO and Ax.
     - Increasing `raw_samples` from 512 to 5000 and decreasing `num_restarts` from 10
       to 5 when performing acquisition function optimisation for consistency with the
       other agents.
@@ -741,9 +741,9 @@ class Bounce(AskTellAgent):
             self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
-        """Select candidate points via log(q)EI optimization in the trust region.
+        """Select candidate points via qLogNEI optimization in the trust region.
 
-        Optimizes log(q)EI over the trust region in the low-dimensional subspace,
+        Optimizes qLogNEI over the trust region in the low-dimensional subspace,
         then projects candidates back to the full space.
 
         Args:

@@ -161,9 +161,9 @@ class SAASBO(AskTellAgent):
         self._fit_model(seed)
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # ruff: ignore[unused-method-argument]
-        """Select the next points to evaluate using Log Expected Improvement (qLogEI).
+        """Select the next points to evaluate using qLogNoisyExpectedImprovement.
 
-        This method optimizes the qLogEI acquisition function using MCMC samples from
+        This method optimizes the qLogNEI acquisition function using MCMC samples from
         the SAAS model.
 
         Args:

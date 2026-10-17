@@ -349,10 +349,10 @@ class LinearBO(AskTellAgent):
         self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:  # ruff: ignore[unused-method-argument]
-        """Select the next points to evaluate using Log Expected Improvement (LogEI).
+        """Select the next points to evaluate using qLogNoisyExpectedImprovement.
 
-        This method optimizes the LogEI (or qLogEI for batch size > 1) acquisition
-        function using `sample_around_best=True` for better candidate generation.
+        This method optimizes the qLogNEI acquisition function using
+        `sample_around_best=True` for better candidate generation.
 
         Args:
             n: Number of points to select (used for batch BO).
