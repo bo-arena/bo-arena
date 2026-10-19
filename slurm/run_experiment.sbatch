@@ -20,6 +20,7 @@
 source "$(pwd)/slurm/preamble.sh"
 
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export XLA_FLAGS="${XLA_FLAGS:+$XLA_FLAGS }--xla_gpu_deterministic_ops=true"
 
 if [ -z "$PROBLEM" ] || [ -z "$AGENT" ] || [ -z "$DEVICE" ]; then
     echo "Error: PROBLEM, AGENT, and DEVICE must be set."
@@ -149,6 +150,7 @@ singularity exec \
     $NV_FLAG \
     --env TMPDIR=${TMPDIR:-/tmp} \
     --env OMP_NUM_THREADS=$OMP_NUM_THREADS \
+    --env XLA_FLAGS="$XLA_FLAGS" \
     --env WANDB_API_KEY=$WANDB_API_KEY \
     --env WANDB_ENTITY=$WANDB_ENTITY \
     --env WANDB_PROJECT=$WANDB_PROJECT \
