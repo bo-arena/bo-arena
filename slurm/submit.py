@@ -82,20 +82,8 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
         "cpus": 4,
         "time": "48:00:00",
     },
-    ("mujoco-humanoid", "turbo_dsp"): {
-        "device": "cuda",
-        "gres": "gpu:1",
-        "cpus": 4,
-        "time": "48:00:00",
-    },
-    ("mujoco-humanoid", "turbo_log_ei"): {
-        "device": "cuda",
-        "gres": "gpu:1",
-        "cpus": 4,
-        "time": "48:00:00",
-    },
     ("mujoco-ant", "saasbo"): {
-        "time": "96:00:00",
+        "time": "72:00:00",
     },
     ("mujoco-humanoid", "saasbo"): {
         "gres": "gpu:1,gpumem_per_gpu:120G",  # SAASBO quickly OOMs
