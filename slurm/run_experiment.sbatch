@@ -145,7 +145,7 @@ fi
 echo "Running: problem=$PROBLEM, agent=$AGENT, device=$DEVICE, seed_idx=$SLURM_ARRAY_TASK_ID"
 singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
-    --bind "$BENCHER_SOCKET_DIR" \
+    --bind "${TMPDIR:-/tmp}" \
     $NV_FLAG \
     --env TMPDIR=${TMPDIR:-/tmp} \
     --env OMP_NUM_THREADS=$OMP_NUM_THREADS \
