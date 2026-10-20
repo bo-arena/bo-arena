@@ -7,20 +7,15 @@ import torch
 
 
 def seed_everything(seed: int) -> None:
-    """Seed all relevant random number generators and enable deterministic algorithms.
-
-    Note: this also sets process-wide PyTorch flags which persist after the call.
+    """Seed all relevant random number generators.
 
     Args:
         seed: The random seed to use for all generators.
     """
     random.seed(seed)
     np.random.seed(seed)  # ruff: ignore[numpy-legacy-random]
-    torch.use_deterministic_algorithms(True)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
 
 def generate_seed(seed_seq: np.random.SeedSequence) -> int:
