@@ -86,16 +86,15 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
         "time": "72:00:00",
     },
     ("mujoco-humanoid", "saasbo"): {
-        "gres": "gpu:1,gpumem_per_gpu:120G",  # SAASBO quickly OOMs
-        "time": "96:00:00",
-        "n_evals": 350,  # perhaps more is possible, has not been tested
+        "gres": "gpu:1",
+        "time": "72:00:00",
     },
     ("mujoco-humanoid", "linear_bo"): {
         "device": "cuda",
         "gres": "gpu:1",
         "cpus": 4,
         "mem": "32G",
-        "time": "48:00:00",
+        "time": "96:00:00",
     },
     ("mujoco-humanoid", "bounce"): {
         "device": "cuda",
