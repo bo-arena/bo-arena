@@ -116,6 +116,8 @@ class SAASBO(AskTellAgent):
             train_Y=self.train_y,
             outcome_transform=Standardize(m=1),
         )
+        # Release what PyTorch cached.
+        torch.cuda.empty_cache()
         fit_fully_bayesian_model_nuts(
             self.model,
             warmup_steps=self.warmup_steps,
@@ -128,7 +130,6 @@ class SAASBO(AskTellAgent):
         import jax  # ruff: ignore[import-outside-top-level]
 
         jax.clear_caches()
-        torch.cuda.empty_cache()
 
     def tell_initial_data(self, data: Dataset, seed: int) -> None:
         """Provide initial observations to the agent and fit the SAAS GP model.
