@@ -74,7 +74,8 @@ class SAASBO(AskTellAgent):
         self.dtype = dtype
         self.device = device
         self.input_dim = input_dim
-        # Use the same opt kwargs as Vanilla BO
+        # Use the same opt kwargs as Vanilla BO (other than batch_limit due to
+        # increased memory demands for SAASBO)
         self.opt_kwargs = {
             "raw_samples": 2500,
             "num_restarts": 5,
@@ -84,7 +85,7 @@ class SAASBO(AskTellAgent):
                 "sample_around_best": True,
                 "sample_around_best_sigma": 0.1,
                 "maxiter": 300,
-                "batch_limit": 64,
+                "batch_limit": 16,
             },
         }
         self.warmup_steps = warmup_steps

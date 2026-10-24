@@ -145,6 +145,7 @@ fi
 echo "Running: problem=$PROBLEM, agent=$AGENT, device=$DEVICE, seed_idx=$SLURM_ARRAY_TASK_ID"
 # JAX (SAASBO's sampler) shares the GPU with PyTorch, so XLA_PYTHON_CLIENT_PREALLOCATE
 # stops JAX reserving 75% of the GPU up front and starving PyTorch and the CUDA driver.
+# expandable_segments reduces fragmentation in PyTorch's CUDA caching allocator.
 singularity exec \
     --bind "$REPO:/workspace/bo-arena" \
     --bind "${TMPDIR:-/tmp}" \
@@ -152,6 +153,7 @@ singularity exec \
     --env TMPDIR=${TMPDIR:-/tmp} \
     --env OMP_NUM_THREADS=$OMP_NUM_THREADS \
     --env XLA_PYTHON_CLIENT_PREALLOCATE=false \
+    --env PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
     --env WANDB_API_KEY=$WANDB_API_KEY \
     --env WANDB_ENTITY=$WANDB_ENTITY \
     --env WANDB_PROJECT=$WANDB_PROJECT \
