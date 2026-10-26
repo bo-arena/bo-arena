@@ -8,7 +8,7 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
-from botorch.acquisition import qLogNoisyExpectedImprovement
+from botorch.acquisition import LogExpectedImprovement, qLogExpectedImprovement
 from botorch.exceptions import ModelFittingError
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
@@ -429,8 +429,8 @@ class Bounce(AskTellAgent):
     low-dimensional random subspace and adaptively expands the embedding until the
     full input dimensionality is reached. Changes made to the original implementation
     include:
-    - Switching (q)ExpectedImprovement to qLogNoisyExpectedImprovement due to improved
-      numerical stability, and for consistency with Vanilla BO and Ax.
+    - Switching (q)ExpectedImprovement to (q)LogExpectedImprovement due to improved
+      numerical stability.
     - Increasing `raw_samples` from 512 to 5000 and decreasing `num_restarts` from 10
       to 5 when performing acquisition function optimisation for consistency with the
       other agents.
@@ -741,9 +741,9 @@ class Bounce(AskTellAgent):
             self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
-        """Select candidate points via qLogNEI optimization in the trust region.
+        """Select candidate points via (q)LogEI optimization in the trust region.
 
-        Optimizes qLogNEI over the trust region in the low-dimensional subspace,
+        Optimizes (q)LogEI over the trust region in the low-dimensional subspace,
         then projects candidates back to the full space.
 
         Args:
@@ -779,12 +779,11 @@ class Bounce(AskTellAgent):
         )
         bounds = torch.stack([tr_lb, tr_ub], dim=0)
 
-        # Optimize qLogNEI over the trust region for consistency with Vanilla BO and Ax
+        # Optimize (q)LogEI over the trust region
+        best_f = float(self.train_y.max().item())
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
-                acqf = qLogNoisyExpectedImprovement(
-                    model=self.model, X_baseline=self.train_X
-                )
+                acqf = LogExpectedImprovement(model=self.model, best_f=best_f)
                 candidates, _ = optimize_acqf(
                     acq_function=acqf,
                     bounds=bounds,
@@ -802,9 +801,9 @@ class Bounce(AskTellAgent):
                 cand_list: list[torch.Tensor] = []
                 for _ in range(n):
                     x_pending = torch.cat(cand_list, dim=0) if cand_list else None
-                    acqf = qLogNoisyExpectedImprovement(
+                    acqf = qLogExpectedImprovement(
                         model=self.model,
-                        X_baseline=self.train_X,
+                        best_f=best_f,
                         sampler=sampler,
                         X_pending=x_pending,
                     )
