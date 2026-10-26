@@ -92,7 +92,7 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
     ("mujoco-humanoid", "vanilla_bo"): {
         "device": "cuda",
         "gres": "gpu:1",
-        "cpus": 8,
+        "cpus": 4,
         "mem": "32G",
         "time": "72:00:00",
     },
@@ -101,13 +101,13 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
         "gres": "gpu:1",
         "cpus": 4,
         "mem": "32G",
-        "time": "96:00:00",
+        "time": "72:00:00",
     },
     ("mujoco-humanoid", "bounce"): {
         "device": "cuda",
         "gres": "gpu:1",
         "cpus": 4,
-        "time": "120:00:00",  # time needed exhibits high variance across seeds
+        "time": "72:00:00",
     },
 }
 
