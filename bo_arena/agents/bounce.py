@@ -431,9 +431,6 @@ class Bounce(AskTellAgent):
     include:
     - Switching (q)ExpectedImprovement to (q)LogExpectedImprovement due to improved
       numerical stability.
-    - Increasing `raw_samples` from 512 to 5000 and decreasing `num_restarts` from 10
-      to 5 when performing acquisition function optimisation for consistency with the
-      other agents.
 
     Reference:
         Papenmeier, L., Nardi, L., Poloczek, M. (2023). Bounce: Reliable
@@ -788,10 +785,9 @@ class Bounce(AskTellAgent):
                     acq_function=acqf,
                     bounds=bounds,
                     q=1,
-                    retry_on_optimization_warning=False,
-                    raw_samples=5000,
-                    num_restarts=5,
-                    options={"nonnegative": False, "maxiter": 300, "batch_limit": 64},
+                    raw_samples=512,
+                    num_restarts=10,
+                    options={"nonnegative": False, "batch_limit": 64},
                 )
             else:
                 # Sequential greedy with X_pending
@@ -811,12 +807,10 @@ class Bounce(AskTellAgent):
                         acq_function=acqf,
                         bounds=bounds,
                         q=1,
-                        retry_on_optimization_warning=False,
-                        raw_samples=5000,
-                        num_restarts=5,
+                        raw_samples=512,
+                        num_restarts=10,
                         options={
                             "nonnegative": False,
-                            "maxiter": 300,
                             "batch_limit": 64,
                         },
                     )
