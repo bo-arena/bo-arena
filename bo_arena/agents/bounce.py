@@ -8,7 +8,7 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
-from botorch.acquisition import LogExpectedImprovement, qLogExpectedImprovement
+from botorch.acquisition import ExpectedImprovement, qExpectedImprovement
 from botorch.exceptions import ModelFittingError
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
@@ -780,14 +780,14 @@ class Bounce(AskTellAgent):
         best_f = float(self.train_y.max().item())
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
-                acqf = LogExpectedImprovement(model=self.model, best_f=best_f)
+                acqf = ExpectedImprovement(model=self.model, best_f=best_f)
                 candidates, _ = optimize_acqf(
                     acq_function=acqf,
                     bounds=bounds,
                     q=1,
                     raw_samples=512,
                     num_restarts=10,
-                    options={"nonnegative": False, "batch_limit": 64},
+                    options={"batch_limit": 64},
                 )
             else:
                 # Sequential greedy with X_pending
@@ -797,7 +797,7 @@ class Bounce(AskTellAgent):
                 cand_list: list[torch.Tensor] = []
                 for _ in range(n):
                     x_pending = torch.cat(cand_list, dim=0) if cand_list else None
-                    acqf = qLogExpectedImprovement(
+                    acqf = qExpectedImprovement(
                         model=self.model,
                         best_f=best_f,
                         sampler=sampler,
@@ -810,7 +810,6 @@ class Bounce(AskTellAgent):
                         raw_samples=512,
                         num_restarts=10,
                         options={
-                            "nonnegative": False,
                             "batch_limit": 64,
                         },
                     )
