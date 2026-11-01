@@ -88,6 +88,9 @@ COMBO_OVERRIDES: dict[tuple[str, str], dict] = {
     ("mujoco-ant", "vanilla_bo"): {
         "time": "96:00:00",  # A few seeds take longer than 72hrs
     },
+    ("mujoco-ant", "bounce"): {
+        "time": "96:00:00",  # 72hrs is likely sufficient, 96hrs is a safety margin
+    },
     ("mujoco-humanoid", "saasbo"): {
         "gres": "gpu:1",
         "time": "72:00:00",
