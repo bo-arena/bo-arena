@@ -219,10 +219,11 @@ __marimo__/
 # Regression test reports (ephemeral, not checked in)
 tests/regression_reports/
 
-# Experiment results and logs
+# Experiment results, logs and figures
 *results*/
 logs*/
 wandb*/
+figures/
 
 # Other
 slurm/bencher_host.txt
