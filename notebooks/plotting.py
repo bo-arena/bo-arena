@@ -5,7 +5,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.6
 #   kernelspec:
 #     display_name: .venv
 #     language: python
@@ -13,7 +13,12 @@
 # ---
 
 # %%
-from plotting_utils import plot_cum_max_y
+from plotting_utils import DATAVERSE_RESULTS_CSV, plot_cum_max_y
+
+# %% [markdown]
+# ### Plot Results from NumPy Arrays
+#
+# Produce the plot from results stored as NumPy arrays in the directory tree following the format `{RESULTS_DIR}/{problem}/{agent}/seed_{seed}_ys.npy`.
 
 # %%
 plot_cum_max_y(
@@ -33,4 +38,22 @@ plot_cum_max_y(
     legend_ncols=3,
     filename="synthetic_problems",
 )
+
+# %% [markdown]
+# ### Plot Results from CSV file
+#
+# Produce the plot from results stored as a CSV file (as in the Dataverse).
+
+# %%
+plot_cum_max_y(
+    agents=["random", "turbo", "saasbo", "bounce", "vanilla_bo", "linear_bo", "ibnn_depth_3"],
+    problems=["rover", "mopta08", "lasso-dna", "svm", "mujoco-ant", "mujoco-humanoid"],
+    ncols=3,
+    height_to_width_ratio=0.83,
+    legend_ncols=4,
+    filename=None,
+    overlay_last=["saasbo"],
+    results_source=DATAVERSE_RESULTS_CSV,
+)
+
 # %%

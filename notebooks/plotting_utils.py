@@ -1,11 +1,13 @@
 """Utilities for plotting cumulative-max BO results in NeurIPS style."""
 
+import functools
 import math
 import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.ticker import EngFormatter, MaxNLocator
 from tueplots import figsizes, fonts, fontsizes
 from tueplots.constants.color import palettes
@@ -59,25 +61,71 @@ N_SEEDS = 20
 
 _NOTEBOOKS_DIR = Path(__file__).resolve().parent
 RESULTS_DIR = _NOTEBOOKS_DIR.parent / "results"
+DATAVERSE_RESULTS_CSV = _NOTEBOOKS_DIR.parent / "dataverse" / "results.csv"
 SAVEFIG_DIR = _NOTEBOOKS_DIR.parent / "figures"
 
 
-def _load_cum_max_stats(
-    res_path: Path,
-    seeds: list[int],
-    context: str,
-    allow_partial_seeds: bool,  # noqa: FBT001
-) -> tuple[np.ndarray, np.ndarray] | None:
-    """Load seed files and return (mean, sem) of the cumulative max.
-
-    Emits a warning and returns None if the line should be skipped (either no
-    seed files found, or seed files missing and partial seeds not allowed).
+@functools.cache
+def _load_csv_runs(csv_path: Path) -> dict[tuple[str, str, int], np.ndarray]:
+    """Index an exported results CSV by run.
 
     Args:
-        res_path: Directory containing seed_{seed}_ys.npy files.
+        csv_path: CSV with columns problem, algorithm, seed, iteration, y.
+
+    Returns:
+        A mapping from (problem, agent, seed) to that run's y values, ordered by
+        iteration.
+    """
+    df = pd.read_csv(csv_path)
+    df = df.sort_values(["problem", "algorithm", "seed", "iteration"])
+    return {
+        (problem, agent, int(seed)): group["y"].to_numpy(dtype=np.float64)
+        for (problem, agent, seed), group in df.groupby(
+            ["problem", "algorithm", "seed"], sort=False
+        )
+    }
+
+
+def _load_run_ys(
+    results_source: Path, problem: str, agent: str, seed: int
+) -> np.ndarray | None:
+    """Load the y values of a single run, or None if the run does not exist.
+
+    Args:
+        results_source: Either the root of a results directory tree laid out as
+            `{results_source}/{problem}/{agent}/seed_{seed}_ys.npy`, or an exported
+            results CSV.
+        problem: Problem name.
+        agent: Agent name.
+        seed: Seed of the run.
+
+    Returns:
+        A 1D array of shape (n_evals,), or None if the run is not in the source.
+    """
+    if results_source.suffix == ".csv":
+        return _load_csv_runs(results_source).get((problem, agent, seed))
+    path = results_source / problem / agent / f"seed_{seed}_ys.npy"
+    return np.load(path) if path.exists() else None
+
+
+def _load_cum_max_stats(
+    results_source: Path,
+    problem: str,
+    agent: str,
+    seeds: list[int],
+    allow_partial_seeds: bool,  # noqa: FBT001
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Load runs and return (mean, sem) of the cumulative max.
+
+    Emits a warning and returns None if the line should be skipped (either no
+    runs found, or runs missing and partial seeds not allowed).
+
+    Args:
+        results_source: Results directory or exported results CSV
+            (see `_load_run_ys`).
+        problem: Problem name.
+        agent: Agent name.
         seeds: Seeds to look for.
-        context: Human-readable identifier for warning messages
-            (e.g. "vanilla_bo on svm").
         allow_partial_seeds: If True, proceed with whatever seeds are available.
             If False, any missing seed causes the whole line to be skipped.
 
@@ -88,15 +136,19 @@ def _load_cum_max_stats(
             - The standard error of the mean of the cumulative max y values
               across the available seeds.
     """
-    available = [s for s in seeds if (res_path / f"seed_{s}_ys.npy").exists()]
+    context = f"{agent} on {problem}"
+    runs = [_load_run_ys(results_source, problem, agent, s) for s in seeds]
+    available = [ys for ys in runs if ys is not None]
     missing = len(seeds) - len(available)
 
     if not available:
-        warnings.warn(f"Skipping {context}: no seed files in {res_path}", stacklevel=3)
+        warnings.warn(
+            f"Skipping {context}: no runs found in {results_source}", stacklevel=3
+        )
         return None
     if missing and not allow_partial_seeds:
         warnings.warn(
-            f"Skipping {context}: {missing}/{len(seeds)} seed files missing",
+            f"Skipping {context}: {missing}/{len(seeds)} seeds missing",
             stacklevel=3,
         )
         return None
@@ -106,8 +158,7 @@ def _load_cum_max_stats(
             stacklevel=3,
         )
 
-    ys = np.array([np.load(res_path / f"seed_{s}_ys.npy") for s in available])
-    return get_cum_max_y_stats(ys)
+    return get_cum_max_y_stats(np.array(available))
 
 
 def plot_cum_max_y(
@@ -121,10 +172,12 @@ def plot_cum_max_y(
     filename: str | None = None,
     allow_partial_seeds: bool = True,
     overlay_last: list[str] | None = None,
+    results_source: Path = RESULTS_DIR,
 ) -> None:
     """Plot cumulative maximum y values (mean +- 1SEM) for each agent on each problem.
 
-    Results are read from `RESULTS_DIR/{problem}/{agent}/seed_{seed}_ys.npy`.
+    Results are read from `results_source`, which defaults to the
+    `RESULTS_DIR/{problem}/{agent}/seed_{seed}_ys.npy` tree.
 
     Args:
         agents: Agent names (i.e. result subdirectory names) to plot.
@@ -136,11 +189,14 @@ def plot_cum_max_y(
             Only needs to contain the names you want to change.
         legend_ncols: Number of columns in the legend. Defaults to one row (all entries).
         filename: Optional filename (without extension) to save the figure as PDF under SAVEFIG_DIR.
-        allow_partial_seeds: If True, plot lines even when some seed files are missing
+        allow_partial_seeds: If True, plot lines even when some runs are missing
             (uses only the available seeds). If False, skip any agent/problem
             combination missing seeds.
         overlay_last: Agent names that should be rendered on top of all other lines
             (via higher zorder). Legend order is unaffected.
+        results_source: Where to read results from: either the root of a directory tree
+            laid out as `{results_source}/{problem}/{agent}/seed_{seed}_ys.npy`, or an
+            exported results CSV (columns problem, algorithm, seed, iteration, y).
     """
     # Merge user-provided name overrides on top of the defaults
     names = {**AGENT_NAME_MAPPING, **(agent_name_mapping or {})}
@@ -172,10 +228,7 @@ def plot_cum_max_y(
 
             for agent_name in agents:
                 stats = _load_cum_max_stats(
-                    RESULTS_DIR / problem / agent_name,
-                    seeds,
-                    f"{agent_name} on {problem}",
-                    allow_partial_seeds,
+                    results_source, problem, agent_name, seeds, allow_partial_seeds
                 )
                 if stats is None:
                     continue

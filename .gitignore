@@ -224,6 +224,7 @@ tests/regression_reports/
 logs*/
 wandb*/
 figures/
+dataverse/
 
 # Other
 slurm/bencher_host.txt
