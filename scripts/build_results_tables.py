@@ -1,22 +1,24 @@
 r"""Build CSV tables from raw ``*_ys.npy`` results for Harvard Dataverse.
 
-Reads ``{problem}/{algorithm}/seed_{SEED}_ys.npy`` files (nested ``batch_{N}``
+Reads ``{problem}/{agent}/seed_{SEED}_ys.npy`` files (nested ``batch_{N}``
 directories are ignored) and writes ``results.csv`` (one row per evaluation),
 ``benchmarks.csv`` (one row per problem) into ``--out-dir``.
 
 Usage:
-    # Build the dataset, keeping only the problems and algorithms of interest:
+    # Build the dataset, keeping only the problems and agents of interest:
     uv run python scripts/build_results_tables.py build \
         --results-root results \
         --out-dir dataverse \
         --problems "rover,mopta08,lasso-dna,svm,mujoco-ant,mujoco-humanoid" \
-        --algorithms "random,turbo,saasbo,bounce,vanilla_bo,linear_bo,ibnn_depth_3"
+        --agents "random,turbo,saasbo,bounce,vanilla_bo,linear_bo,ibnn_depth_3"
 
-    # Merge results into an existing table.
+    # Merge results into an existing table. Rows for any new problems are
+    # added to the benchmarks table so that it still covers every result.
     uv run python scripts/build_results_tables.py append \
         --existing dataverse/results.csv \
         --new new_results.csv \
-        --out dataverse/results.csv
+        --out dataverse/results.csv \
+        --benchmarks dataverse/benchmarks.csv
 """
 
 from __future__ import annotations
@@ -34,12 +36,12 @@ from bo_arena.problems.metadata import PROBLEM_METADATA, SYNTHETIC_PROBLEM_METAD
 ALL_PROBLEM_METADATA = {**PROBLEM_METADATA, **SYNTHETIC_PROBLEM_METADATA}
 SEED_FILE_RE = re.compile(r"^seed_(\d+)_ys\.npy$")
 
-RUN_KEY = ["problem", "algorithm", "seed"]
+RUN_KEY = ["problem", "agent", "seed"]
 
 # Stable column order + human-readable description for each output table.
 RESULTS_COLUMNS: dict[str, str] = {
     "problem": "Benchmark name; joins to benchmarks.csv.",
-    "algorithm": "Optimisation algorithm that produced the run.",
+    "agent": "BO agent that produced the run",
     "seed": "Random seed identifying a single optimisation run.",
     "iteration": "0-based index of the function evaluation within the run.",
     "y": "Observed black-box value.",
@@ -65,17 +67,17 @@ def results_tree_to_dataframe(
     results_root: Path,
     *,
     problems: set[str] | None = None,
-    algorithms: set[str] | None = None,
+    agents: set[str] | None = None,
 ) -> pd.DataFrame:
     """Walk a results tree and return the tidy long-format results table.
 
-    Only files directly inside ``{problem}/{algorithm}/`` are read.
+    Only files directly inside ``{problem}/{agent}/`` are read.
 
     Args:
         results_root: Directory containing
-            ``{problem}/{algorithm}/seed_{SEED}_ys.npy`` files.
+            ``{problem}/{agent}/seed_{SEED}_ys.npy`` files.
         problems: If given, keep only these problems.
-        algorithms: If given, keep only these algorithms.
+        agents: If given, keep only these agents.
 
     Returns:
         A DataFrame with the columns of :data:`RESULTS_COLUMNS`.
@@ -85,16 +87,16 @@ def results_tree_to_dataframe(
         match = SEED_FILE_RE.match(path.name)
         if match is None:
             continue
-        problem, algorithm = path.relative_to(results_root).parts[:2]
+        problem, agent = path.relative_to(results_root).parts[:2]
         if problems is not None and problem not in problems:
             continue
-        if algorithms is not None and algorithm not in algorithms:
+        if agents is not None and agent not in agents:
             continue
         ys = np.load(path).astype(np.float64).ravel()
         frames.append(
             pd.DataFrame({
                 "problem": problem,
-                "algorithm": algorithm,
+                "agent": agent,
                 "seed": np.int64(match.group(1)),
                 "iteration": np.arange(ys.shape[0], dtype=np.int32),
                 "y": ys,
@@ -102,7 +104,7 @@ def results_tree_to_dataframe(
         )
     if not frames:
         msg = (
-            f"No matching '{{problem}}/{{algorithm}}/seed_*_ys.npy' files found "
+            f"No matching '{{problem}}/{{agent}}/seed_*_ys.npy' files found "
             f"under {results_root}"
         )
         raise FileNotFoundError(msg)
@@ -110,7 +112,18 @@ def results_tree_to_dataframe(
 
 
 def benchmark_metadata_to_dataframe(problems: list[str]) -> pd.DataFrame:
-    """Build the per-benchmark metadata table for the given problems."""
+    """Build the per-benchmark metadata table for the given problems.
+
+    Raises:
+        ValueError: If any problem has no entry in the problem metadata.
+    """
+    unknown = sorted(set(problems) - ALL_PROBLEM_METADATA.keys())
+    if unknown:
+        msg = (
+            f"No problem metadata registered for: {', '.join(unknown)}. Register "
+            "them in bo_arena/problems/metadata.py."
+        )
+        raise ValueError(msg)
     rows: list[dict[str, Any]] = [
         {
             "problem": problem,
@@ -128,12 +141,22 @@ def benchmark_metadata_to_dataframe(problems: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=list(BENCHMARKS_COLUMNS))
 
 
-def append_results(existing: Path, new: Path, out: Path) -> pd.DataFrame:
+def append_results(
+    existing: Path, new: Path, out: Path, benchmarks: Path
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Concatenate a new results table onto an existing one, checking keys.
 
+    The benchmarks table at ``benchmarks`` is updated in place with rows for
+    any problems in the merged results that it does not already cover;
+    existing rows are left untouched. Nothing is written if any check fails.
+
+    Returns:
+        The merged results table and the updated benchmarks table.
+
     Raises:
-        ValueError: If the schemas differ or the two tables share any run
-            (a ``(problem, algorithm, seed)`` tuple).
+        ValueError: If the schemas differ, the two tables share any run
+            (a ``(problem, agent, seed)`` tuple) or a new problem has no
+            registered metadata.
     """
     existing_df = pd.read_csv(existing)
     new_df = pd.read_csv(new)
@@ -153,8 +176,21 @@ def append_results(existing: Path, new: Path, out: Path) -> pd.DataFrame:
         )
         raise ValueError(msg)
     merged = pd.concat([existing_df, new_df], ignore_index=True)
+
+    benchmarks_df = pd.read_csv(benchmarks)
+    if list(benchmarks_df.columns) != list(BENCHMARKS_COLUMNS):
+        msg = f"{benchmarks} does not match the expected benchmarks schema."
+        raise ValueError(msg)
+    missing = sorted(set(merged["problem"]) - set(benchmarks_df["problem"]))
+    if missing:
+        benchmarks_df = pd.concat(
+            [benchmarks_df, benchmark_metadata_to_dataframe(missing)],
+            ignore_index=True,
+        ).sort_values("problem", ignore_index=True)
+
     merged.to_csv(out, index=False)
-    return merged
+    benchmarks_df.to_csv(benchmarks, index=False)
+    return merged, benchmarks_df
 
 
 def _cmd_build(args: argparse.Namespace) -> None:
@@ -164,7 +200,7 @@ def _cmd_build(args: argparse.Namespace) -> None:
     results_df = results_tree_to_dataframe(
         args.results_root,
         problems=args.problems,
-        algorithms=args.algorithms,
+        agents=args.agents,
     )
     problems = sorted(results_df["problem"].unique())
     benchmarks_df = benchmark_metadata_to_dataframe(problems)
@@ -175,12 +211,14 @@ def _cmd_build(args: argparse.Namespace) -> None:
     n_runs = results_df.groupby(RUN_KEY).ngroups
     print(f"Wrote {out_dir / 'results.csv'} ({len(results_df):,} rows, {n_runs} runs)")
     print(f"Wrote {out_dir / 'benchmarks.csv'} ({len(benchmarks_df)} benchmarks)")
-    print(f"Wrote {out_dir / 'README.md'}")
 
 
 def _cmd_append(args: argparse.Namespace) -> None:
-    merged = append_results(args.existing, args.new, args.out)
+    merged, benchmarks_df = append_results(
+        args.existing, args.new, args.out, args.benchmarks
+    )
     print(f"Wrote {args.out} ({len(merged):,} rows)")
+    print(f"Wrote {args.benchmarks} ({len(benchmarks_df)} benchmarks)")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -200,10 +238,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Comma-separated problems to keep (default: all found in the tree).",
     )
     build.add_argument(
-        "--algorithms",
+        "--agents",
         type=_comma_separated_set,
         default=None,
-        help="Comma-separated algorithms to keep (default: all found in the tree).",
+        help="Comma-separated agents to keep (default: all found in the tree).",
     )
     build.set_defaults(func=_cmd_build)
 
@@ -211,6 +249,12 @@ def _build_parser() -> argparse.ArgumentParser:
     append.add_argument("--existing", type=Path, required=True)
     append.add_argument("--new", type=Path, required=True)
     append.add_argument("--out", type=Path, required=True)
+    append.add_argument(
+        "--benchmarks",
+        type=Path,
+        required=True,
+        help="benchmarks.csv to update in place with rows for any new problems.",
+    )
     append.set_defaults(func=_cmd_append)
 
     return parser

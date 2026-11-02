@@ -70,18 +70,18 @@ def _load_csv_runs(csv_path: Path) -> dict[tuple[str, str, int], np.ndarray]:
     """Index an exported results CSV by run.
 
     Args:
-        csv_path: CSV with columns problem, algorithm, seed, iteration, y.
+        csv_path: CSV with columns problem, agent, seed, iteration, y.
 
     Returns:
         A mapping from (problem, agent, seed) to that run's y values, ordered by
         iteration.
     """
     df = pd.read_csv(csv_path)
-    df = df.sort_values(["problem", "algorithm", "seed", "iteration"])
+    df = df.sort_values(["problem", "agent", "seed", "iteration"])
     return {
         (problem, agent, int(seed)): group["y"].to_numpy(dtype=np.float64)
         for (problem, agent, seed), group in df.groupby(
-            ["problem", "algorithm", "seed"], sort=False
+            ["problem", "agent", "seed"], sort=False
         )
     }
 
@@ -196,7 +196,7 @@ def plot_cum_max_y(
             (via higher zorder). Legend order is unaffected.
         results_source: Where to read results from: either the root of a directory tree
             laid out as `{results_source}/{problem}/{agent}/seed_{seed}_ys.npy`, or an
-            exported results CSV (columns problem, algorithm, seed, iteration, y).
+            exported results CSV (columns problem, agent, seed, iteration, y).
     """
     # Merge user-provided name overrides on top of the defaults
     names = {**AGENT_NAME_MAPPING, **(agent_name_mapping or {})}

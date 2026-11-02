@@ -106,6 +106,7 @@ experiments = [
 ]
 plotting = [
     { name = "matplotlib" },
+    { name = "pandas" },
     { name = "tueplots" },
 ]
 test = [
@@ -138,6 +139,7 @@ dev = [
 experiments = [{ name = "py-cpuinfo", specifier = ">=9" }]
 plotting = [
     { name = "matplotlib", specifier = ">=3.11.2" },
+    { name = "pandas", specifier = ">=3" },
     { name = "tueplots", specifier = ">=0.2.5" },
 ]
 test = [
