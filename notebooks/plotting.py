@@ -33,9 +33,8 @@ plot_cum_max_y(
 
 # %%
 plot_cum_max_y(
-    agents=["random", "turbo", "bounce", "vanilla_bo", "linear_bo", "ibnn_depth_3"],
+    agents=["random", "turbo", "bounce", "vanilla_bo", "linear_bo"],
     problems=["ackley_dim_100", "michalewicz_dim_100", "styblinski_tang_dim_100"],
-    legend_ncols=3,
     filename="synthetic_problems",
 )
 
