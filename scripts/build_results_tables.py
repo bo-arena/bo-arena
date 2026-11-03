@@ -2,7 +2,7 @@ r"""Build CSV tables from raw ``*_ys.npy`` results for Harvard Dataverse.
 
 Reads ``{problem}/{agent}/seed_{SEED}_ys.npy`` files (nested ``batch_{N}``
 directories are ignored) and writes ``results.csv`` (one row per evaluation),
-``benchmarks.csv`` (one row per problem) into ``--out-dir``.
+``problems.csv`` (one row per problem) into ``--out-dir``.
 
 Usage:
     # Build the dataset, keeping only the problems and agents of interest:
@@ -13,12 +13,12 @@ Usage:
         --agents "random,turbo,saasbo,bounce,vanilla_bo,linear_bo,ibnn_depth_3"
 
     # Merge results into an existing table. Rows for any new problems are
-    # added to the benchmarks table so that it still covers every result.
+    # added to the problems table so that it still covers every result.
     uv run python scripts/build_results_tables.py append \
         --existing dataverse/results.csv \
         --new new_results.csv \
         --out dataverse/results.csv \
-        --benchmarks dataverse/benchmarks.csv
+        --problems-table dataverse/problems.csv
 """
 
 from __future__ import annotations
@@ -40,19 +40,19 @@ RUN_KEY = ["problem", "agent", "seed"]
 
 # Stable column order + human-readable description for each output table.
 RESULTS_COLUMNS: dict[str, str] = {
-    "problem": "Benchmark name; joins to benchmarks.csv.",
+    "problem": "Problem name; joins to problems.csv.",
     "agent": "BO agent that produced the run",
     "seed": "Random seed identifying a single optimisation run.",
     "iteration": "0-based index of the function evaluation within the run.",
     "y": "Observed black-box value.",
 }
-BENCHMARKS_COLUMNS: dict[str, str] = {
-    "problem": "Benchmark name (primary key).",
-    "input_dim": "Dimensionality of the benchmark input space.",
+PROBLEMS_COLUMNS: dict[str, str] = {
+    "problem": "Problem name (primary key).",
+    "input_dim": "Dimensionality of the problem input space.",
     "n_initial_points": "Initial design points evaluated before the BO loop.",
     "n_total_evaluations": "Total function evaluations in a run.",
     "stochastic": (
-        "Whether the benchmark is stochastic, i.e. repeated evaluations at the "
+        "Whether the problem is stochastic, i.e. repeated evaluations at the "
         "same input can return different y values."
     ),
 }
@@ -111,8 +111,8 @@ def results_tree_to_dataframe(
     return pd.concat(frames, ignore_index=True)[list(RESULTS_COLUMNS)]
 
 
-def benchmark_metadata_to_dataframe(problems: list[str]) -> pd.DataFrame:
-    """Build the per-benchmark metadata table for the given problems.
+def problem_metadata_to_dataframe(problems: list[str]) -> pd.DataFrame:
+    """Build the per-problem metadata table for the given problems.
 
     Raises:
         ValueError: If any problem has no entry in the problem metadata.
@@ -138,20 +138,20 @@ def benchmark_metadata_to_dataframe(problems: list[str]) -> pd.DataFrame:
         }
         for problem in problems
     ]
-    return pd.DataFrame(rows, columns=list(BENCHMARKS_COLUMNS))
+    return pd.DataFrame(rows, columns=list(PROBLEMS_COLUMNS))
 
 
 def append_results(
-    existing: Path, new: Path, out: Path, benchmarks: Path
+    existing: Path, new: Path, out: Path, problems_table: Path
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Concatenate a new results table onto an existing one, checking keys.
 
-    The benchmarks table at ``benchmarks`` is updated in place with rows for
+    The problems table at ``problems_table`` is updated in place with rows for
     any problems in the merged results that it does not already cover;
     existing rows are left untouched. Nothing is written if any check fails.
 
     Returns:
-        The merged results table and the updated benchmarks table.
+        The merged results table and the updated problems table.
 
     Raises:
         ValueError: If the schemas differ, the two tables share any run
@@ -177,20 +177,20 @@ def append_results(
         raise ValueError(msg)
     merged = pd.concat([existing_df, new_df], ignore_index=True)
 
-    benchmarks_df = pd.read_csv(benchmarks)
-    if list(benchmarks_df.columns) != list(BENCHMARKS_COLUMNS):
-        msg = f"{benchmarks} does not match the expected benchmarks schema."
+    problems_df = pd.read_csv(problems_table)
+    if list(problems_df.columns) != list(PROBLEMS_COLUMNS):
+        msg = f"{problems_table} does not match the expected problems schema."
         raise ValueError(msg)
-    missing = sorted(set(merged["problem"]) - set(benchmarks_df["problem"]))
+    missing = sorted(set(merged["problem"]) - set(problems_df["problem"]))
     if missing:
-        benchmarks_df = pd.concat(
-            [benchmarks_df, benchmark_metadata_to_dataframe(missing)],
+        problems_df = pd.concat(
+            [problems_df, problem_metadata_to_dataframe(missing)],
             ignore_index=True,
         ).sort_values("problem", ignore_index=True)
 
     merged.to_csv(out, index=False)
-    benchmarks_df.to_csv(benchmarks, index=False)
-    return merged, benchmarks_df
+    problems_df.to_csv(problems_table, index=False)
+    return merged, problems_df
 
 
 def _cmd_build(args: argparse.Namespace) -> None:
@@ -203,22 +203,22 @@ def _cmd_build(args: argparse.Namespace) -> None:
         agents=args.agents,
     )
     problems = sorted(results_df["problem"].unique())
-    benchmarks_df = benchmark_metadata_to_dataframe(problems)
+    problems_df = problem_metadata_to_dataframe(problems)
 
     results_df.to_csv(out_dir / "results.csv", index=False)
-    benchmarks_df.to_csv(out_dir / "benchmarks.csv", index=False)
+    problems_df.to_csv(out_dir / "problems.csv", index=False)
 
     n_runs = results_df.groupby(RUN_KEY).ngroups
     print(f"Wrote {out_dir / 'results.csv'} ({len(results_df):,} rows, {n_runs} runs)")
-    print(f"Wrote {out_dir / 'benchmarks.csv'} ({len(benchmarks_df)} benchmarks)")
+    print(f"Wrote {out_dir / 'problems.csv'} ({len(problems_df)} problems)")
 
 
 def _cmd_append(args: argparse.Namespace) -> None:
-    merged, benchmarks_df = append_results(
-        args.existing, args.new, args.out, args.benchmarks
+    merged, problems_df = append_results(
+        args.existing, args.new, args.out, args.problems_table
     )
     print(f"Wrote {args.out} ({len(merged):,} rows)")
-    print(f"Wrote {args.benchmarks} ({len(benchmarks_df)} benchmarks)")
+    print(f"Wrote {args.problems_table} ({len(problems_df)} problems)")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -250,10 +250,10 @@ def _build_parser() -> argparse.ArgumentParser:
     append.add_argument("--new", type=Path, required=True)
     append.add_argument("--out", type=Path, required=True)
     append.add_argument(
-        "--benchmarks",
+        "--problems-table",
         type=Path,
         required=True,
-        help="benchmarks.csv to update in place with rows for any new problems.",
+        help="problems.csv to update in place with rows for any new problems.",
     )
     append.set_defaults(func=_cmd_append)
 
