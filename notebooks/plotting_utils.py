@@ -22,7 +22,7 @@ plt.rcParams.update({"figure.dpi": 200})
 
 AGENT_NAME_MAPPING = {
     "bounce": "Bounce",
-    "ibnn_depth_3": "IBNN",
+    "ibnn_depth_3": "I-BNN",
     "linear_bo": "Linear BO",
     "random": "Random",
     "saasbo": "SAASBO",
