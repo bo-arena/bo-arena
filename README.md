@@ -34,8 +34,14 @@ Please refer to the [contributing guidelines](CONTRIBUTING.md) for details on ho
 
     problem = BencherProblem(name="svm")
     agent = VanillaBO(input_dim=problem.metadata.input_dim)
-    arena = Arena(problem=problem, agent=agent, seed=43, batch_size=1,
-                  n_initial_points=30, n_total_evaluations=100)
+    arena = Arena(
+        problem=problem,
+        agent=agent,
+        seed=43,
+        batch_size=1,
+        n_initial_points=30,
+        n_total_evaluations=100,
+    )
     result = arena.run()  # evaluated points, objective values and timings
     ```
 
