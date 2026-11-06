@@ -7,7 +7,7 @@ For running the experiments in our paper, we used the following Docker images av
 - `bo-arena`: `docker://tchristie/bo-arena@sha256:e1eb20f52187709dd3f325e103cf48805fd48b18449366c91d112bdf02a403a1`
 - `bencher`: `docker://tchristie/bencher@sha256:a7ca83f6d0b3810ed8dc03bb210aa35c46e65d5d19e4371aa7dbf038be3b6467`
 
-These were used to create Singularity `.sif` files using the the `pull_bencher_singularity.sbatch` and `pull_bo_arena_singularity.sbatch` scripts. The exact `.sif` files used for running the experiments can be found [here](https://drive.google.com/drive/folders/1HCIabVFaGDb_4sDIJ_mUK9PBOEQKXhTC?usp=sharing).
+These were used to create Singularity `.sif` files using the `pull_bencher_singularity.sbatch` and `pull_bo_arena_singularity.sbatch` scripts. The exact `.sif` files used for running the experiments can be found [here](https://drive.google.com/drive/folders/1HCIabVFaGDb_4sDIJ_mUK9PBOEQKXhTC?usp=sharing).
 
 ### Experiment Commands
 
