@@ -18,7 +18,7 @@ from plotting_utils import DATAVERSE_RESULTS_CSV, plot_cum_max_y
 # %% [markdown]
 # ### Plot Results from CSV file
 #
-# Produce the plot from results stored as a CSV file (as in the Dataverse).
+# Produce the plot from results stored as a CSV file (as in the Dataverse). Note that, as written, the cell below assumes that `results.csv` from [our dataset on the Dataverse](https://doi.org/10.7910/DVN/MNGMHT) is stored at `../dataverse/results.csv`.
 
 # %%
 plot_cum_max_y(
