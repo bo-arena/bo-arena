@@ -1,6 +1,6 @@
 # bo-arena results
 
-We store results on the Harvard dataverse, so that you don't need to run benchmark problems yourself. The following files are present:
+We store results in [our dataset on the Harvard dataverse](https://doi.org/10.7910/DVN/MNGMHT), so that you don't need to run benchmark problems yourself. The following files are present:
 
 `results.csv` - one row per function evaluation:
 - `problem` - Problem name; joins to `problems.csv`.
@@ -15,6 +15,10 @@ We store results on the Harvard dataverse, so that you don't need to run benchma
 - `n_initial_points` - Number of initial design points evaluated before the BO loop.
 - `n_total_evaluations` - Total number of function evaluations in a run.
 - `stochastic` - Whether the problem is stochastic, i.e. repeated evaluations at the same input can return different `y` values.
+
+### Plotting
+
+Please refer to `notebooks/plotting.py` for information on how to generate the plots used as the leaderboard on our website.
 
 ### Semantics
 

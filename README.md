@@ -59,6 +59,12 @@ Please refer to our more in-depth [usage docs](docs/USAGE.md) for details on how
 
 Results used to create the leaderboard are available on the Harvard Dataverse. For details on how to download the results and produce plots, please refer to our [dataverse docs](docs/DATAVERSE.md).
 
+### Experiment Commands used for Obtaining Results in our Paper
+
+Please refer to [PAPER_EXPERIMENTS.md](docs/PAPER_EXPERIMENTS.md) for a list of the exact commands used to run the experiments for our paper. The ablations in the paper were run using a [separate codebase](https://github.com/bo-arena/bo-arena-neurips2026).
+
+Note that as new contributions are made, and more experiments are run, we will be using [CHANGELOG.md](docs/CHANGELOG.md) to keep track of exactly which images have been used and which commands were run to obtain results.
+
 ### Citation
 
 If you use `bo-arena` in your work, please consider citing our paper:

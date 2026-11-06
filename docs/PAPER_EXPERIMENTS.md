@@ -1,8 +1,7 @@
-# Experiments
+# Paper Experiments
 
-## v1.0.0
+For running the experiments in our paper, we used the following Docker images available on Docker Hub:
 
-For running the experiments, we used the following Docker images available on Docker Hub:
 - `bo-arena`: `docker://tchristie/bo-arena@sha256:e1eb20f52187709dd3f325e103cf48805fd48b18449366c91d112bdf02a403a1`
 - `bencher`: `docker://tchristie/bencher@sha256:a7ca83f6d0b3810ed8dc03bb210aa35c46e65d5d19e4371aa7dbf038be3b6467`
 
