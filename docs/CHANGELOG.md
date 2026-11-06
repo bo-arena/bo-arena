@@ -2,7 +2,7 @@
 
 ## v1.0.0
 
-Initial release of codebase to accompany the paper.
+Initial release of codebase to accompany the paper, run with the codebase at tag `v1.0.0`.
 
 For running the experiments, we used the following Docker images available on Docker Hub:
 - `bo-arena`: `docker://tchristie/bo-arena@sha256:e1eb20f52187709dd3f325e103cf48805fd48b18449366c91d112bdf02a403a1`

@@ -49,11 +49,11 @@ Please refer to the [contributing guidelines](CONTRIBUTING.md) for details on ho
 
 ### Running Experiments on a Cluster with SLURM
 
-Please refer to our more in-depth [usage docs](docs/USAGE.md) for details on how to run experiments on a SLURM-based cluster with the provided scripts. These docs also contain the commands used to produce the `bo-arena` results.
+Please refer to our more in-depth [usage docs](docs/USAGE.md) for details on how to run experiments on a SLURM-based cluster with the provided scripts.
 
 > **⚠️ Warning**
 >
-> Running experiments on a cluster via `run_experiment.sbatch` creates temporary socket files for communication with the `bencher` server. Please refer to the [usage docs](docs/USAGE.md) for information on how to ensure that these files get cleaned up on your cluster.
+> Running experiments on a cluster via `run_experiment.sbatch` creates a temporary directory for the `bencher` server's socket files and temporary files. Please refer to the [usage docs](docs/USAGE.md) for information on how to ensure that these files get cleaned up on your cluster.
 
 ### Obtaining the Dataset from the Harvard Dataverse
 
