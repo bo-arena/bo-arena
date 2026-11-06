@@ -427,10 +427,7 @@ class Bounce(AskTellAgent):
     "Bounce: Reliable High-Dimensional Bayesian Optimization for Combinatorial and
     Mixed Spaces" by Papenmeier et al. (2023). Bounce starts optimization in a
     low-dimensional random subspace and adaptively expands the embedding until the
-    full input dimensionality is reached. Changes made to the original implementation
-    include:
-    - Switching (q)ExpectedImprovement to (q)LogExpectedImprovement due to improved
-      numerical stability.
+    full input dimensionality is reached.
 
     Reference:
         Papenmeier, L., Nardi, L., Poloczek, M. (2023). Bounce: Reliable
@@ -738,9 +735,9 @@ class Bounce(AskTellAgent):
             self._fit_model()
 
     def ask(self, n: int, seed: int) -> Float[np.ndarray, "{n} D"]:
-        """Select candidate points via (q)LogEI optimization in the trust region.
+        """Select candidate points via (q)EI optimization in the trust region.
 
-        Optimizes (q)LogEI over the trust region in the low-dimensional subspace,
+        Optimizes (q)EI over the trust region in the low-dimensional subspace,
         then projects candidates back to the full space.
 
         Args:
@@ -776,7 +773,7 @@ class Bounce(AskTellAgent):
         )
         bounds = torch.stack([tr_lb, tr_ub], dim=0)
 
-        # Optimize (q)LogEI over the trust region
+        # Optimize (q)EI over the trust region
         best_f = float(self.train_y.max().item())
         with gpytorch.settings.max_cholesky_size(float("inf")):  # Always use Cholesky
             if n == 1:
