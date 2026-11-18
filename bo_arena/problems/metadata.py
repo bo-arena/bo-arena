@@ -8,6 +8,49 @@ from bencherscaffold.protoclasses.bencher_pb2 import ValueType
 from bo_arena.problems.input_space import ContinuousInputSpace, InputSpace
 
 
+@dataclass(frozen=True)
+class ConstraintSpec:
+    """Specification of a single black-box constraint.
+
+    A constraint value `c` is feasible when `lower <= c <= upper`, where `None`
+    means unbounded on that side. For example:
+
+    - `ConstraintSpec("stress", upper=0.0)` encodes `c <= 0`.
+    - `ConstraintSpec("mass", lower=1.0)` encodes `c >= 1`.
+    - `ConstraintSpec("balance", lower=-eps, upper=eps)` encodes the equality
+      `c == 0` up to a tolerance `eps`.
+
+    Args:
+        name: Name of the constraint, unique within a problem.
+        lower: (Optional) lower bound on the constraint value.
+        upper: (Optional) upper bound on the constraint value.
+
+    Raises:
+        ValueError: If neither bound is set, or the lower bound is greater than the
+            upper bound.
+    """
+
+    name: str
+    lower: float | None = None
+    upper: float | None = None
+
+    def __post_init__(self) -> None:
+        """Checks that the bounds are valid."""
+        if self.lower is None and self.upper is None:
+            msg = f"Constraint '{self.name}' must have at least one bound."
+            raise ValueError(msg)
+        if (
+            self.lower is not None
+            and self.upper is not None
+            and self.lower > self.upper
+        ):
+            msg = (
+                f"Constraint '{self.name}' has lower bound {self.lower} > upper "
+                f"bound {self.upper}."
+            )
+            raise ValueError(msg)
+
+
 @dataclass(frozen=True)  # frozen=True makes them immutable
 class ProblemMetadata:
     """Metadata that problems must provide.
@@ -23,6 +66,12 @@ class ProblemMetadata:
         input_space: The problem's input space.
         stochastic: Whether the (unseeded) problem is stochastic, i.e. it can
             return different values when evaluated at the same point.
+        constraints: Black-box constraint specifications, matched to the values in
+            `Dataset.constraints` by name. Defaults to `()`, i.e. an unconstrained
+            problem.
+
+    Raises:
+        ValueError: If two constraints have the same name.
     """
 
     input_dim: int
@@ -31,6 +80,25 @@ class ProblemMetadata:
     default_n_total_evaluations: int
     input_space: InputSpace
     stochastic: bool = False
+    constraints: tuple[ConstraintSpec, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Checks that the constraint names are unique."""
+        names = self.constraint_names
+        if len(set(names)) != len(names):
+            duplicates = sorted({name for name in names if names.count(name) > 1})
+            msg = f"Constraint names must be unique, got duplicates: {duplicates}."
+            raise ValueError(msg)
+
+    @property
+    def n_constraints(self) -> int:
+        """Number of black-box constraints (zero for an unconstrained problem)."""
+        return len(self.constraints)
+
+    @property
+    def constraint_names(self) -> tuple[str, ...]:
+        """Names of the constraints, in the order they are defined."""
+        return tuple(spec.name for spec in self.constraints)
 
 
 PROBLEM_METADATA: dict[str, ProblemMetadata] = {

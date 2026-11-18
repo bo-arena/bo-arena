@@ -28,12 +28,18 @@ class AskTellAgent(ABC):
     by the agent are in [0, 1]^D, and the Arena handles mapping to and from the
     problem's input space.
 
+    Agents that set `supports_constraints = True` should accept a `constraint_specs`
+    constructor argument (see `ProblemMetadata.constraints`) giving each constraint's
+    name and feasibility bounds.
+
     Attributes:
         author_verified: Whether the implementation has been verified by the original
             authors of the method.
+        supports_constraints: Whether the agent supports black-box constraints.
     """
 
     author_verified: ClassVar[bool] = False
+    supports_constraints: ClassVar[bool] = False
 
     @abstractmethod
     def __str__(self) -> str:

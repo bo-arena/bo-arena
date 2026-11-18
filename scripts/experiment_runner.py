@@ -165,6 +165,7 @@ def main() -> None:  # ruff: ignore[too-many-statements]
     agent = agent_class(
         input_dim=input_dim,
         n_total_evaluations=n_tot,
+        constraint_specs=metadata.constraints,
         device=args.device,
         dtype=dtype,
     )
@@ -183,17 +184,15 @@ def main() -> None:  # ruff: ignore[too-many-statements]
 
     xs_file = experiment_dir / f"seed_{seed}_xs.npy"
     ys_file = experiment_dir / f"seed_{seed}_ys.npy"
+    cs_file = experiment_dir / f"seed_{seed}_cs.npz"
     times_file = experiment_dir / f"seed_{seed}_times.npz"
     config_file = experiment_dir / f"seed_{seed}_config.json"
     log_file = experiment_dir / f"seed_{seed}.log"
 
     # Check for existing results/logs to avoid overwriting previous runs
-    if (
-        xs_file.exists()
-        or ys_file.exists()
-        or times_file.exists()
-        or config_file.exists()
-        or log_file.exists()
+    if any(
+        f.exists()
+        for f in (xs_file, ys_file, cs_file, times_file, config_file, log_file)
     ):
         msg = (
             f"Results or log file already exists for seed {seed} in "
@@ -276,6 +275,8 @@ def main() -> None:  # ruff: ignore[too-many-statements]
     # Save results
     np.save(xs_file, result.observed_data.X)
     np.save(ys_file, result.observed_data.objectives[:, 0])
+    if metadata.n_constraints > 0:
+        np.savez(cs_file, **result.observed_data.constraints)
     np.savez(
         times_file,
         ask=np.array(result.ask_times),

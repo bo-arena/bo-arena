@@ -11,6 +11,7 @@ from wandb import Run
 from bo_arena.agents import AskTellAgent
 from bo_arena.problems import Problem
 from bo_arena.problems.input_space import ContinuousInputSpace
+from bo_arena.utils.constraints import is_feasible, running_best_feasible
 from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import (
     generate_seed,
@@ -46,6 +47,10 @@ class Arena:
     unit hypercube before passing them to the agent. Observed data is stored in the
     problem's input space.
 
+    For constrained problems (see `ProblemMetadata.constraints`), the logged
+    "best observation" is the best feasible observation, and is NaN until a feasible
+    point has been observed.
+
     Args:
         problem: The problem to run.
         agent: The BO agent to use for optimization.
@@ -60,6 +65,8 @@ class Arena:
 
     Raises:
         TypeError: If the problem's input space is not a `ContinuousInputSpace`.
+        ValueError: If the problem is constrained but the agent does not support
+            constraints.
     """
 
     def __init__(
@@ -95,12 +102,26 @@ class Arena:
                 f"{type(self.input_space).__name__}."
             )
             raise TypeError(msg)
+
+        self.constraint_specs = problem.metadata.constraints
+        self.constrained = problem.metadata.n_constraints > 0
+        if self.constrained and not agent.supports_constraints:
+            msg = (
+                f"Problem '{problem}' has {problem.metadata.n_constraints} "
+                f"constraints, but agent '{agent}' does not support constraints. "
+            )
+            raise ValueError(msg)
+
         self.batch_size = batch_size
         self.logger = logger
         self.wandb_run = wandb_run
         self.observed_data = Dataset(
-            np.empty((0, self.problem.metadata.input_dim), dtype=np.float64),
-            np.empty((0, 1), dtype=np.float64),
+            X=np.empty((0, self.problem.metadata.input_dim), dtype=np.float64),
+            objectives=np.empty((0, 1), dtype=np.float64),
+            constraints={
+                name: np.empty(0, dtype=np.float64)
+                for name in self.problem.metadata.constraint_names
+            },
         )
 
     def _evaluate(
@@ -113,11 +134,13 @@ class Arena:
             seeds: Seeds, one per point, passed to the problem for evaluation.
 
         Returns:
-            Dataset containing the evaluated points and their objective values.
+            Dataset containing the evaluated points and their objective and
+            constraint values.
 
         Raises:
             ValueError: If the problem returns more than one objective, as
-                multi-objective problems are not yet supported.
+                multi-objective problems are not yet supported, or if its constraint
+                names differ from those in its metadata.
         """
         data = self.problem.evaluate_points(points, seeds)
         if data.n_objectives != 1:
@@ -126,9 +149,21 @@ class Arena:
                 "but only single-objective problems are currently supported."
             )
             raise ValueError(msg)
+        expected = self.problem.metadata.constraint_names
+        if set(data.constraints) != set(expected):
+            missing = sorted(set(expected) - set(data.constraints))
+            unexpected = sorted(set(data.constraints) - set(expected))
+            msg = (
+                f"Problem '{self.problem}' returned constraints that do not match "
+                f"its metadata: missing {missing}, unexpected {unexpected}."
+            )
+            raise ValueError(msg)
         return Dataset(
             X=data.X.astype(np.float64),
             objectives=data.objectives.astype(np.float64),
+            constraints={
+                name: data.constraints[name].astype(np.float64) for name in expected
+            },
         )
 
     def _to_unit(self, data: Dataset) -> Dataset:
@@ -140,7 +175,11 @@ class Arena:
         Returns:
             Dataset with inputs in [0, 1]^D.
         """
-        return Dataset(X=self.input_space.to_unit(data.X), objectives=data.objectives)
+        return Dataset(
+            X=self.input_space.to_unit(data.X),
+            objectives=data.objectives,
+            constraints=data.constraints,
+        )
 
     def _from_unit(self, points: Float[np.ndarray, "N D"]) -> Float[np.ndarray, "N D"]:
         """Map points returned by the agent from the unit hypercube to the input space.
@@ -189,6 +228,7 @@ class Arena:
             RuntimeError: If the method is called more than once on the same instance.
                 This is to prevent non-deterministic behavior due to the internal state
                 of the Arena (e.g. seed counter, agent) being modified across runs.
+            RuntimeError: If the agent returns an empty batch from `ask`.
         """
         if self._has_run:
             msg = (
@@ -227,25 +267,46 @@ class Arena:
         seed = generate_seed(tell_init_key)
         self.agent.tell_initial_data(self._to_unit(self.observed_data), seed)
 
-        # Log initial points info.
+        # Log initial points info. For constrained problems, "best" means best
+        # feasible (NaN until a feasible point is observed).
+        best_label = (
+            "best feasible observation" if self.constrained else "best observation"
+        )
+        initial_feasible = is_feasible(initial_data, self.constraint_specs)
+        initial_best_feasible_obs_so_far = running_best_feasible(
+            initial_observations, initial_feasible
+        )
         if self.logger is not None:
-            self.logger.info(
+            message = (
                 f"Initial points evaluated: {self.n_initial_points}\n"
-                f"Initial best observation: {float(np.max(initial_observations)):.4f}"
+                f"Initial {best_label}: {float(initial_best_feasible_obs_so_far[-1]):.4f}"  # ruff: ignore[line-too-long]
             )
+            if self.constrained:
+                message += (
+                    "\nInitial feasible points: "
+                    f"{int(initial_feasible.sum())}/{initial_data.n}"
+                )
+            self.logger.info(message)
 
         if self.wandb_run is not None:
             for iter in range(self.n_initial_points):
-                observation_val = float(initial_observations[iter])
-                best_val_so_far = float(np.max(initial_observations[: iter + 1]))
-                is_best_observation = observation_val == best_val_so_far
-                self.wandb_run.log({
+                obs_val = float(initial_observations[iter])
+                best_obs_val = float(initial_best_feasible_obs_so_far[iter])
+                # An infeasible point can tie the best feasible value without
+                # being the best observation.
+                is_best_obs = bool(initial_feasible[iter]) and obs_val == best_obs_val
+                log_entry = {
                     "batch_index": 0,
                     "iteration": iter,
-                    "observation": observation_val,
-                    "best_observation": best_val_so_far,
-                    "is_best_observation": is_best_observation,
-                })
+                    "observation": obs_val,
+                    "best_observation": best_obs_val,
+                    "is_best_observation": is_best_obs,
+                }
+                if self.constrained:
+                    log_entry["is_feasible"] = bool(initial_feasible[iter])
+                    for name, values in initial_data.constraints.items():
+                        log_entry[f"constraint/{name}"] = float(values[iter])
+                self.wandb_run.log(log_entry)
 
         # Run core BO loop. Uses a while loop rather than a fixed iteration count
         # because agents may return fewer points than requested (e.g. during
@@ -272,6 +333,14 @@ class Arena:
             new_points = self.agent.ask(n_ask, seed)
             ask_time = time.perf_counter() - start
             ask_times.append(ask_time)
+            if new_points.shape[0] == 0:
+                # An empty batch would make no progress, so the loop would never
+                # terminate.
+                msg = (
+                    f"Agent {type(self.agent).__name__} returned no points when "
+                    f"asked for {n_ask} in BO loop iteration {batch_idx + 1}."
+                )
+                raise RuntimeError(msg)
             new_points = self._from_unit(new_points)
 
             # Evaluate the problem at the new points, using the seeds at the new
@@ -300,37 +369,59 @@ class Arena:
             # individual points).
             actual_batch_size = new_points.shape[0]
             observations = self.observed_data.objectives[:, 0]
+            feasible = is_feasible(self.observed_data, self.constraint_specs)
+            best_feasible_obs_so_far = running_best_feasible(observations, feasible)
             if self.logger is not None:
-                new_best_in_batch = np.max(observations[-actual_batch_size:]) > np.max(
-                    observations[:-actual_batch_size]
+                best_before_batch = best_feasible_obs_so_far[-actual_batch_size - 1]
+                best_after_batch = best_feasible_obs_so_far[-1]
+                new_best_in_batch = bool(
+                    not np.isnan(best_after_batch)
+                    and (
+                        np.isnan(best_before_batch)
+                        or best_after_batch > best_before_batch
+                    )
                 )
-                self.logger.info(
+                message = (
                     f"BO loop iteration {batch_idx + 1}:\n"
                     f"  Total evaluations: {self.observed_data.n}\n"
                     f"  Ask time: {ask_time:.4f}s\n"
                     f"  Eval time: {eval_time:.4f}s\n"
                     f"  Tell time: {tell_time:.4f}s\n"
-                    f"  Best observation: {float(np.max(observations)):.4f}\n"
-                    f"  New best observation in current batch: {new_best_in_batch}"
+                    f"  {best_label.capitalize()}: {float(best_after_batch):.4f}\n"
+                    f"  New {best_label} in current batch: {new_best_in_batch}"
                 )
+                if self.constrained:
+                    n_feasible_in_batch = int(feasible[-actual_batch_size:].sum())
+                    message += (
+                        "\n  Feasible points in batch: "
+                        f"{n_feasible_in_batch}/{actual_batch_size}\n"
+                        "  Feasible points so far: "
+                        f"{int(feasible.sum())}/{self.observed_data.n}"
+                    )
+                self.logger.info(message)
 
             # Log detailed metrics to WandB for each point in the batch.
             if self.wandb_run is not None:
                 batch_start = self.observed_data.n - actual_batch_size
                 for iter in range(batch_start, self.observed_data.n):
-                    observation_val = float(observations[iter])
-                    best_val_so_far = float(np.max(observations[: iter + 1]))
-                    is_best_observation = observation_val == best_val_so_far
-                    self.wandb_run.log({
+                    obs_val = float(observations[iter])
+                    best_obs_val = float(best_feasible_obs_so_far[iter])
+                    is_best_obs = bool(feasible[iter]) and obs_val == best_obs_val
+                    log_entry = {
                         "batch_index": batch_idx + 1,
                         "iteration": iter,
-                        "observation": observation_val,
-                        "best_observation": best_val_so_far,
-                        "is_best_observation": is_best_observation,
+                        "observation": obs_val,
+                        "best_observation": best_obs_val,
+                        "is_best_observation": is_best_obs,
                         "ask_time": ask_time,
                         "eval_time": eval_time,
                         "tell_time": tell_time,
-                    })
+                    }
+                    if self.constrained:
+                        log_entry["is_feasible"] = bool(feasible[iter])
+                        for name, values in self.observed_data.constraints.items():
+                            log_entry[f"constraint/{name}"] = float(values[iter])
+                    self.wandb_run.log(log_entry)
 
             batch_idx += 1
 

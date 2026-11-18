@@ -1,10 +1,11 @@
 """Base class for problems."""
 
 from abc import abstractmethod
+from collections.abc import Sequence
 
 import numpy as np
 from bencherscaffold.client import BencherClient
-from bencherscaffold.protoclasses.bencher_pb2 import Value
+from bencherscaffold.protoclasses.bencher_pb2 import Constraint, ConstraintType, Value
 from jaxtyping import Float, UInt32
 
 from bo_arena.problems.metadata import PROBLEM_METADATA, ProblemMetadata
@@ -43,7 +44,8 @@ class Problem:
             seeds: (Optional) seeds, one per point, for seeding stochastic problems.
 
         Returns:
-            Dataset containing the evaluated points and their objective values.
+            Dataset containing the evaluated points and their objective values,
+            plus one named constraint per entry in `metadata.constraints`.
         """
         msg = "This method should be implemented by subclasses."
         raise NotImplementedError(msg)
@@ -51,6 +53,13 @@ class Problem:
 
 class BencherProblem(Problem):
     """Problem implementation using Bencher.
+
+    Bencher returns constraint values alongside the objectives. Bencher must return
+    exactly one constraint per entry in `metadata.constraints` (so none for an
+    unconstrained problem), with matching names. The raw values are stored in
+    `Dataset.constraints`, keyed by name. Bencher's equality constraints have no
+    tolerance built in, so each must have both a lower and an upper bound in the
+    metadata.
 
     Args:
         name: Name of the problem.
@@ -76,6 +85,52 @@ class BencherProblem(Problem):
         super().__init__(name, metadata)
         self.bencher_client = BencherClient(address=address, port=port)
 
+    def _parse_constraints(self, constraints: Sequence[Constraint]) -> dict[str, float]:
+        """Check Bencher's constraints against the metadata and extract their values.
+
+        Args:
+            constraints: Constraints returned by Bencher for a single point.
+
+        Returns:
+            Raw constraint values keyed by name.
+
+        Raises:
+            ValueError: If Bencher returns duplicate constraint names or names that
+                differ from the metadata's, or if an equality constraint lacks a
+                two-sided bound.
+        """
+        by_name = {constraint.name: constraint for constraint in constraints}
+        if len(by_name) != len(constraints):
+            names = [constraint.name for constraint in constraints]
+            duplicates = sorted({name for name in names if names.count(name) > 1})
+            msg = (
+                f"Bencher returned duplicate constraint names for problem "
+                f"'{self.name}': {duplicates}."
+            )
+            raise ValueError(msg)
+
+        expected = self.metadata.constraint_names
+        if set(by_name) != set(expected):
+            missing = sorted(set(expected) - set(by_name))
+            unexpected = sorted(set(by_name) - set(expected))
+            msg = (
+                f"Bencher's constraint names for problem '{self.name}' do not match "
+                f"its metadata: missing {missing}, unexpected {unexpected}."
+            )
+            raise ValueError(msg)
+
+        for spec in self.metadata.constraints:
+            if by_name[spec.name].type == ConstraintType.EQUALITY and (
+                spec.lower is None or spec.upper is None
+            ):
+                msg = (
+                    f"Constraint '{spec.name}' of problem '{self.name}' is an "
+                    "equality constraint, so its metadata must set both a lower and "
+                    f"an upper tolerance, got ({spec.lower}, {spec.upper})."
+                )
+                raise ValueError(msg)
+        return {name: by_name[name].value for name in expected}
+
     def evaluate_points(
         self,
         points: Float[np.ndarray, "N D"],
@@ -91,9 +146,13 @@ class BencherProblem(Problem):
             seeds: (Optional) seeds, one per point, for seeding stochastic problems.
 
         Returns:
-            Dataset containing the evaluated points and their objective values.
+            Dataset containing the evaluated points and their objective and
+            constraint values.
         """
         objectives = []
+        constraints: dict[str, list[float]] = {
+            name: [] for name in self.metadata.constraint_names
+        }
         for i, point in enumerate(points):
             bencher_point = [
                 Value(type=self.metadata.input_type, value=float(d)) for d in point
@@ -105,4 +164,12 @@ class BencherProblem(Problem):
             )
             # Turn minimization into maximization for BoTorch.
             objectives.append([-objective.value for objective in result.objectives])
-        return Dataset(X=points, objectives=np.array(objectives))
+            for name, value in self._parse_constraints(result.constraints).items():
+                constraints[name].append(value)
+        return Dataset(
+            X=points,
+            objectives=np.array(objectives),
+            constraints={
+                name: np.array(values) for name, values in constraints.items()
+            },
+        )

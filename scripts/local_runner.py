@@ -120,6 +120,7 @@ def main() -> None:
     agent = agent_class(
         input_dim=input_dim,
         n_total_evaluations=n_tot,
+        constraint_specs=metadata.constraints,
         device=args.device,
         dtype=dtype,
     )
