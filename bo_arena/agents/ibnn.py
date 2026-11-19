@@ -12,6 +12,7 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from jaxtyping import Float
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
+from bo_arena.problems.metadata import ProblemMetadata
 from bo_arena.utils.dataset import Dataset
 
 
@@ -37,7 +38,7 @@ class IBNN(AskTellAgent):
 
     def __init__(
         self,
-        input_dim: int,
+        problem_metadata: ProblemMetadata,
         depth: int = 3,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
@@ -46,7 +47,8 @@ class IBNN(AskTellAgent):
         """Initialize the IBNN agent.
 
         Args:
-            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            problem_metadata: Metadata of the problem being optimized. See
+                `AskTellAgent` for which fields agents should use.
             depth: Depth of the network whose infinite-width limit defines the kernel.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
@@ -61,7 +63,7 @@ class IBNN(AskTellAgent):
 
         self.dtype = dtype
         self.device = device
-        self.input_dim = input_dim
+        self.input_dim = problem_metadata.input_dim
         # Use the same opt kwargs as Vanilla BO
         self.opt_kwargs = {
             "raw_samples": 2500,

@@ -72,9 +72,8 @@ class _RecordingAgent(Random):
 
     supports_constraints = True
 
-    def __init__(self, input_dim: int, **kwargs: object) -> None:
-        super().__init__(input_dim)
-        self.constraint_specs = kwargs.get("constraint_specs")
+    def __init__(self, problem_metadata: ProblemMetadata, **kwargs: object) -> None:
+        super().__init__(problem_metadata, **kwargs)
         self.told: list[Dataset] = []
 
     def tell(self, data: Dataset, seed: int) -> None:  # ruff: ignore[unused-method-argument]
@@ -179,16 +178,20 @@ def test_running_best_feasible_ignores_nan_objectives() -> None:
 
 def test_unconstrained_agent_rejected_on_constrained_problem() -> None:
     """Agents without constraint support are rejected on constrained problems."""
+    problem = _ConstrainedToy()
     with pytest.raises(ValueError, match="does not support constraints"):
         Arena(
-            problem=_ConstrainedToy(), agent=Random(input_dim=D), seed=0, batch_size=2
+            problem=problem,
+            agent=Random(problem_metadata=problem.metadata),
+            seed=0,
+            batch_size=2,
         )
 
 
 def test_constraints_reach_agent() -> None:
     """Constraint values should flow from the problem to the agent, unscaled."""
     problem = _ConstrainedToy()
-    agent = _RecordingAgent(input_dim=D, constraint_specs=problem.metadata.constraints)
+    agent = _RecordingAgent(problem_metadata=problem.metadata)
     result = Arena(problem=problem, agent=agent, seed=0, batch_size=2).run()
     told = agent.told[0]
     for data in agent.told[1:]:
@@ -198,7 +201,7 @@ def test_constraints_reach_agent() -> None:
         np.testing.assert_array_equal(
             told.constraints[name], result.observed_data.constraints[name]
         )
-    assert agent.constraint_specs == problem.metadata.constraints
+    assert agent.problem_metadata.constraints == problem.metadata.constraints
 
 
 class _EmptyBatchAgent(_RecordingAgent):
@@ -210,9 +213,10 @@ class _EmptyBatchAgent(_RecordingAgent):
 
 def test_empty_batch_raises() -> None:
     """An agent returning no points should fail loudly rather than loop forever."""
+    problem = _ConstrainedToy()
     arena = Arena(
-        problem=_ConstrainedToy(),
-        agent=_EmptyBatchAgent(input_dim=D),
+        problem=problem,
+        agent=_EmptyBatchAgent(problem_metadata=problem.metadata),
         seed=0,
         batch_size=2,
     )
@@ -224,7 +228,10 @@ def test_missing_constraint_raises() -> None:
     """A problem not returning all of its metadata's constraints fails."""
     problem = _ConstrainedToy(returned_names=("c0",))
     arena = Arena(
-        problem=problem, agent=_RecordingAgent(input_dim=D), seed=0, batch_size=2
+        problem=problem,
+        agent=_RecordingAgent(problem_metadata=problem.metadata),
+        seed=0,
+        batch_size=2,
     )
     with pytest.raises(ValueError, match=r"missing \['c1'\], unexpected \[\]"):
         arena.run()

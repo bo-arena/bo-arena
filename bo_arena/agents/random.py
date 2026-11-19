@@ -3,6 +3,7 @@
 import numpy as np
 from jaxtyping import Float
 
+from bo_arena.problems.metadata import ProblemMetadata
 from bo_arena.utils.dataset import Dataset
 
 from .ask_tell_agent import AskTellAgent
@@ -11,14 +12,16 @@ from .ask_tell_agent import AskTellAgent
 class Random(AskTellAgent):
     """Random agent that samples points uniformly at random from the input space."""
 
-    def __init__(self, input_dim: int, **kwargs: object) -> None:  # ruff: ignore[unused-method-argument]
+    def __init__(self, problem_metadata: ProblemMetadata, **kwargs: object) -> None:  # ruff: ignore[unused-method-argument]
         """Initialize the random agent.
 
         Args:
-            input_dim: Dimensionality of the input space.
+            problem_metadata: Metadata of the problem being optimized. See
+                `AskTellAgent` for which fields agents should use.
             **kwargs: Additional keyword arguments (not used by the random agent).
         """
-        self.input_dim = input_dim
+        self.problem_metadata = problem_metadata
+        self.input_dim = problem_metadata.input_dim
 
     def __str__(self) -> str:
         """Return a string representation of the agent."""

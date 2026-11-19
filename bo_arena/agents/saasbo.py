@@ -11,6 +11,7 @@ from botorch.optim import optimize_acqf
 from jaxtyping import Float
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
+from bo_arena.problems.metadata import ProblemMetadata
 from bo_arena.utils.dataset import Dataset
 
 
@@ -46,7 +47,7 @@ class SAASBO(AskTellAgent):
 
     def __init__(
         self,
-        input_dim: int,
+        problem_metadata: ProblemMetadata,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         warmup_steps: int = 512,
@@ -57,7 +58,8 @@ class SAASBO(AskTellAgent):
         """Initialize the SAASBO agent.
 
         Args:
-            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            problem_metadata: Metadata of the problem being optimized. See
+                `AskTellAgent` for which fields agents should use.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             warmup_steps: Number of warmup steps for HMC sampling.
@@ -73,7 +75,7 @@ class SAASBO(AskTellAgent):
 
         self.dtype = dtype
         self.device = device
-        self.input_dim = input_dim
+        self.input_dim = problem_metadata.input_dim
         # Use the same opt kwargs as Vanilla BO (other than batch_limit due to
         # increased memory demands for SAASBO)
         self.opt_kwargs = {

@@ -28,9 +28,17 @@ class AskTellAgent(ABC):
     by the agent are in [0, 1]^D, and the Arena handles mapping to and from the
     problem's input space.
 
-    Agents that set `supports_constraints = True` should accept a `constraint_specs`
-    constructor argument (see `ProblemMetadata.constraints`) giving each constraint's
-    name and feasibility bounds.
+    Agents are constructed with the problem's `ProblemMetadata` as a
+    `problem_metadata` argument, plus run settings such as `n_total_evaluations` as
+    needed. From the metadata, agents can use e.g. `input_dim` and `constraints` (each
+    constraint's name and feasibility bounds, for agents that set
+    `supports_constraints = True`). Note that:
+    - `problem_metadata.input_space` describes the problem's original input space,
+      for reference only. Agents must still return points in [0, 1]^D.
+    - `problem_metadata.default_n_initial_points` and
+      `problem_metadata.default_n_total_evaluations` are only defaults, which a run
+      may override. Agents needing the evaluation budget should use an
+      `n_total_evaluations` argument instead (see e.g. `Bounce`).
 
     Attributes:
         author_verified: Whether the implementation has been verified by the original

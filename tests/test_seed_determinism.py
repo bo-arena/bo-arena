@@ -31,7 +31,7 @@ def test_seed_determinism(agent_name: str) -> None:
     agent_cls = AGENTS[agent_name]
 
     def run_arena(seed: int) -> RunResult:
-        agent = agent_cls(input_dim=problem.metadata.input_dim, n_total_evaluations=12)
+        agent = agent_cls(problem_metadata=problem.metadata, n_total_evaluations=12)
         arena = Arena(
             problem=problem,
             agent=agent,
@@ -58,7 +58,7 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
     agent_cls = AGENTS[agent_name]
 
     def run_arena(seed: int) -> RunResult:
-        agent = agent_cls(input_dim=problem.metadata.input_dim, n_total_evaluations=12)
+        agent = agent_cls(problem_metadata=problem.metadata, n_total_evaluations=12)
         arena = Arena(
             problem=problem,
             agent=agent,
@@ -78,7 +78,7 @@ def test_different_seeds_give_different_results(agent_name: str) -> None:
 def test_observed_data_is_float64() -> None:
     """Arena.run() should return float64 arrays for both X and y."""
     problem = Hartmann6D(embed_dim=100)
-    agent = Random(input_dim=problem.metadata.input_dim)
+    agent = Random(problem_metadata=problem.metadata)
     arena = Arena(
         problem=problem,
         agent=agent,
@@ -115,7 +115,7 @@ def test_evaluation_seeds_independent_of_batch_size() -> None:
         problem = SeedRecordingHartmann6D()
         arena = Arena(
             problem=problem,
-            agent=Random(input_dim=problem.metadata.input_dim),
+            agent=Random(problem_metadata=problem.metadata),
             seed=42,
             batch_size=batch_size,
             n_initial_points=5,
@@ -195,4 +195,4 @@ def test_seed_spawning_hard_coded_values(
 def test_saasbo_cuda_without_gpu_jax_raises() -> None:
     """Asking for CUDA while JAX is on the CPU should fail explicitly."""
     with pytest.raises(RuntimeError, match="JAX is running on the CPU"):
-        SAASBO(input_dim=4, device="cuda")
+        SAASBO(problem_metadata=Hartmann6D(embed_dim=100).metadata, device="cuda")
