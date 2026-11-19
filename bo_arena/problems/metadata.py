@@ -291,6 +291,20 @@ PROBLEM_METADATA: dict[str, ProblemMetadata] = {
             upper_bounds=np.ones(100),
         ),
     ),
+    "gramacy": ProblemMetadata(
+        input_dim=2,
+        input_type=ValueType.CONTINUOUS,
+        default_n_initial_points=10,
+        default_n_total_evaluations=100,
+        input_space=ContinuousInputSpace(
+            lower_bounds=np.zeros(2),
+            upper_bounds=np.ones(2),
+        ),
+        constraints=(
+            ConstraintSpec("g0", upper=0.0),
+            ConstraintSpec("g1", upper=0.0),
+        ),
+    ),
 }
 
 
