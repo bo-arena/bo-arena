@@ -28,6 +28,7 @@ from linear_operator.operators import (
 from torch import nn
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
+from bo_arena.problems.metadata import ProblemMetadata
 from bo_arena.utils.dataset import Dataset
 
 
@@ -245,7 +246,7 @@ class LinearBO(AskTellAgent):
 
     def __init__(
         self,
-        input_dim: int,
+        problem_metadata: ProblemMetadata,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         normalize_lengthscale: bool = False,  # ruff: ignore[boolean-default-value-positional-argument]
@@ -254,7 +255,8 @@ class LinearBO(AskTellAgent):
         """Initialize the LinearBO agent.
 
         Args:
-            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            problem_metadata: Metadata of the problem being optimized. See
+                `AskTellAgent` for which fields agents should use.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             normalize_lengthscale: If True, use ``softmax(ls).sqrt()`` as the effective
@@ -263,7 +265,7 @@ class LinearBO(AskTellAgent):
         """
         self.dtype = dtype
         self.device = device
-        self.input_dim = input_dim
+        self.input_dim = problem_metadata.input_dim
         # Use the same opt kwargs as Vanilla BO
         self.opt_kwargs = {
             "raw_samples": 2500,

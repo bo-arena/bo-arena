@@ -33,7 +33,7 @@ Please refer to the [contributing guidelines](CONTRIBUTING.md) for details on ho
     from bo_arena.problems import BencherProblem
 
     problem = BencherProblem(name="svm")
-    agent = VanillaBO(input_dim=problem.metadata.input_dim)
+    agent = VanillaBO(problem_metadata=problem.metadata)
     arena = Arena(
         problem=problem,
         agent=agent,

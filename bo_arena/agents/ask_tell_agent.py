@@ -28,12 +28,26 @@ class AskTellAgent(ABC):
     by the agent are in [0, 1]^D, and the Arena handles mapping to and from the
     problem's input space.
 
+    Agents are constructed with the problem's `ProblemMetadata` as a
+    `problem_metadata` argument, plus run settings such as `n_total_evaluations` as
+    needed. From the metadata, agents can use e.g. `input_dim` and `constraints` (each
+    constraint's name and feasibility bounds, for agents that set
+    `supports_constraints = True`). Note that:
+    - `problem_metadata.input_space` describes the problem's original input space,
+      for reference only. Agents must still return points in [0, 1]^D.
+    - `problem_metadata.default_n_initial_points` and
+      `problem_metadata.default_n_total_evaluations` are only defaults, which a run
+      may override. Agents needing the evaluation budget should use an
+      `n_total_evaluations` argument instead (see e.g. `Bounce`).
+
     Attributes:
         author_verified: Whether the implementation has been verified by the original
             authors of the method.
+        supports_constraints: Whether the agent supports black-box constraints.
     """
 
     author_verified: ClassVar[bool] = False
+    supports_constraints: ClassVar[bool] = False
 
     @abstractmethod
     def __str__(self) -> str:

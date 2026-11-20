@@ -18,6 +18,7 @@ from jaxtyping import Float
 from torch.quasirandom import SobolEngine
 
 from bo_arena.agents.ask_tell_agent import AskTellAgent
+from bo_arena.problems.metadata import ProblemMetadata
 from bo_arena.utils.dataset import Dataset
 from bo_arena.utils.miscellaneous import generate_seed
 
@@ -96,7 +97,7 @@ class TuRBO(AskTellAgent):
 
     def __init__(
         self,
-        input_dim: int,
+        problem_metadata: ProblemMetadata,
         dtype: torch.dtype = torch.float64,
         device: torch.device | str = "cpu",
         **kwargs: object,  # ruff: ignore[unused-method-argument]
@@ -104,14 +105,15 @@ class TuRBO(AskTellAgent):
         """Initialize the TuRBO agent.
 
         Args:
-            input_dim: Dimensionality of the input space (assumed to be [0,1]^d).
+            problem_metadata: Metadata of the problem being optimized. See
+                `AskTellAgent` for which fields agents should use.
             dtype: The torch dtype to use for the model and data.
             device: The torch device to use for the model and data.
             kwargs: Additional arguments.
         """
         self.dtype = dtype
         self.device = device
-        self.input_dim = input_dim
+        self.input_dim = problem_metadata.input_dim
 
         self.train_X = torch.empty(0, self.input_dim, dtype=dtype, device=device)
         self.train_y = torch.empty(0, 1, dtype=dtype, device=device)

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # %%
 # Initialise problem and agent
 problem = BencherProblem(name="svm")
-agent = VanillaBO(input_dim=problem.metadata.input_dim)
+agent = VanillaBO(problem_metadata=problem.metadata)
 
 # Run the experiment
 bo_arena = Arena(

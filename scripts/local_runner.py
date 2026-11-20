@@ -100,7 +100,6 @@ def main() -> None:
         )
 
     metadata = problem.metadata
-    input_dim = metadata.input_dim
 
     # Resolve n_init and n_tot
     n_init = (
@@ -118,7 +117,7 @@ def main() -> None:
     agent_class = AGENTS[args.agent]
     dtype = torch.float32 if args.dtype == "float32" else torch.float64
     agent = agent_class(
-        input_dim=input_dim,
+        problem_metadata=metadata,
         n_total_evaluations=n_tot,
         device=args.device,
         dtype=dtype,

@@ -48,4 +48,3 @@ New agents must be registered in `bo_arena/agents/registry.py`.
 - **jaxtyping** is used for shape-annotated array types (e.g., `Float[np.ndarray, "N D"]`). Runtime checking is enabled via beartype in tests (`--jaxtyping-packages` pytest option).
 - **Google-style docstrings**. Flexible naming conventions are intentional for research clarity (several PEP8/N-rules are disabled in Ruff config).
 - Magic numbers and higher McCabe complexity are allowed (research code).
-- `__init__` methods are not annotated; argument types are documented in the class docstring instead.
